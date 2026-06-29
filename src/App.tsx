@@ -4,10 +4,13 @@ import type { Product, CartItem } from "./types/types";
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
 
 // Componentes
-import Hero from "./components/Hero";
+import Navbar from "./components/layout/Navbar";
+import Hero from "./components/home/Hero";
+import WhyChoosePCByte from "./components/home/WhyChoosePCByte";
+
 import ProductCard from "./components/ProductCard";
 import Cart from "./components/Cart";
-import Navbar from "./components/Navbar";
+
 import Sidebar from "./components/Sidebar";
 import AdminDashboard from "./components/AdminDashboard";
 import SuccessPage from "./components/SuccessPage";
@@ -158,6 +161,7 @@ function App() {
               <Sidebar activeCategory={filter} onSelectCategory={setFilter} />
               <main className="flex-1 overflow-y-auto p-8 custom-scrollbar pb-20">
                   <Hero onSelectCategory={setFilter} />
+                  <WhyChoosePCByte />
                   <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center gap-2">
                     <Activity size={14} className="text-[#97cf00]" />

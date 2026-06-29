@@ -1,4 +1,4 @@
-import logo from "../assets/logo.png";
+import logo from "../../assets/logo.png";
 import { Search, ShoppingCart, ShieldCheck } from "lucide-react";
 
 interface NavbarProps {
