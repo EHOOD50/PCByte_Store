@@ -4,6 +4,7 @@ import type { Product, CartItem } from "./types/types";
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
 
 // Componentes
+import Hero from "./components/Hero";
 import ProductCard from "./components/ProductCard";
 import Cart from "./components/Cart";
 import Navbar from "./components/Navbar";
@@ -155,8 +156,9 @@ function App() {
           <Route path="/" element={
             <>
               <Sidebar activeCategory={filter} onSelectCategory={setFilter} />
-              <main className="flex-1 overflow-y-auto p-0.5 custom-scrollbar pb-20">
-                <div className="flex justify-between items-center mb-2">
+              <main className="flex-1 overflow-y-auto p-8 custom-scrollbar pb-20">
+                  <Hero onSelectCategory={setFilter} />
+                  <div className="flex justify-between items-center mb-8">
                   <div className="flex items-center gap-2">
                     <Activity size={14} className="text-[#97cf00]" />
                     <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
