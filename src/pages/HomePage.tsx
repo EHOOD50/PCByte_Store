@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, ShoppingCart, LogOut, Zap } from "lucide-react";
 import ProductCard from "../components/ProductCard";
-import Sidebar from '../components/Sidebar';
+import Sidebar from '../components/layout/Sidebar';
 import Footer from '../components/Footer';
 import WhatsAppWidget from '../components/WhatsAppWidget';
 import { Link, useNavigate } from 'react-router-dom';

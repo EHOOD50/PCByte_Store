@@ -11,7 +11,7 @@ import WhyChoosePCByte from "./components/home/WhyChoosePCByte";
 import ProductCard from "./components/ProductCard";
 import Cart from "./components/Cart";
 
-import Sidebar from "./components/Sidebar";
+import Sidebar from "./components/layout/Sidebar";
 import AdminDashboard from "./components/AdminDashboard";
 import SuccessPage from "./components/SuccessPage";
 import WhatsAppWidget from "./components/WhatsAppWidget";
