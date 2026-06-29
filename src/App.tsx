@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
-import axios from "axios";
+
 import type { Product, CartItem } from "./types/types";
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
+import { useProducts } from "./hooks/useProducts";
 
 // Componentes
 import Navbar from "./components/layout/Navbar";
@@ -26,7 +27,7 @@ import { ArrowUpDown,ShieldCheck, Activity, X } from "lucide-react";
 const CART_KEY = "pcbyte_cart_v1";
 
 function App() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { products } = useProducts();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,22 +56,7 @@ function App() {
   const hideNavbarPaths = ["/checkout", "/checkout-selection"];
   const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
-  // 1. CARGA DE DATOS
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = () => {
-    axios.get("http://192.168.100.226:8080/api/products?size=100")
-      .then(res => {
-        const data = res.data._embedded?.products || res.data.content || res.data;
-        setProducts(Array.isArray(data) ? data : []);
-      })
-      .catch(err => {
-        console.error("Error API:", err);
-        setProducts([]);
-      });
-  };
+  
 
   // 2. PERSISTENCIA
   useEffect(() => {
