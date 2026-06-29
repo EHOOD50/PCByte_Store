@@ -1,41 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React from 'react';
+import { useMenu } from '../../hooks/useMenu';
 import { ChevronRight, LayoutGrid, Activity, ShieldCheck } from 'lucide-react';
 
-interface MenuGroup {
-  id: number | string;
-  title: string;
-  color: string;
-  cats: string[];
-}
+
 
 interface SidebarProps {
   activeCategory: string; // Añadido para resaltar el botón activo
   onSelectCategory: (categoryName: string) => void; // Nombre corregido para App.tsx
 }
 
-const API_BASE_URL = 'http://192.168.100.226:8080/api';
+
 
 const Sidebar: React.FC<SidebarProps> = ({ activeCategory, onSelectCategory }) => {
-  const [menuGroups, setMenuGroups] = useState<MenuGroup[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/config/menu`);
-        if (response.data && response.data.configValue) {
-          const parsedConfig = JSON.parse(response.data.configValue);
-          setMenuGroups(Array.isArray(parsedConfig) ? parsedConfig : []);
-        }
-      } catch (error) {
-        console.error("Error cargando configuración de menú:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMenu();
-  }, []);
+  const { menuGroups, loading } = useMenu();
 
   const handleSelect = (cat: string) => {
     onSelectCategory(cat);
