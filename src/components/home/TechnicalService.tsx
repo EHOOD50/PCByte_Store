@@ -1,3 +1,5 @@
+import { useState } from "react";
+import DiagnosticRequestModal from "./DiagnosticRequestModal";
 import {
   Laptop,
   Wrench,
@@ -47,6 +49,7 @@ const services = [
 ];
 
 export default function TechnicalService() {
+    const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
   return (
     <section className="mt-24 mb-24">
       <div className="text-center max-w-3xl mx-auto mb-14">
@@ -102,12 +105,17 @@ export default function TechnicalService() {
       <div className="mt-16 text-center">
 
         <button
-          className="bg-[#97cf00] text-black px-10 py-4 rounded-2xl font-black uppercase tracking-wider hover:scale-105 transition-all shadow-xl"
-        >
-          Solicitar Diagnóstico
-        </button>
+  onClick={() => setIsDiagnosticOpen(true)}
+  className="bg-[#97cf00] text-black px-10 py-4 rounded-2xl font-black uppercase tracking-wider hover:scale-105 transition-all shadow-xl"
+>
+  Solicitar Diagnóstico
+</button>
 
       </div>
+      <DiagnosticRequestModal
+  isOpen={isDiagnosticOpen}
+  onClose={() => setIsDiagnosticOpen(false)}
+/>
     </section>
   );
 }
