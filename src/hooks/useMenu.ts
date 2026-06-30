@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api/axios";
 
 export interface MenuGroup {
   id: number | string;
@@ -7,8 +7,6 @@ export interface MenuGroup {
   color: string;
   cats: string[];
 }
-
-const API_BASE_URL = "http://192.168.100.226:8080/api";
 
 export function useMenu() {
   const [menuGroups, setMenuGroups] = useState<MenuGroup[]>([]);
@@ -20,7 +18,7 @@ export function useMenu() {
     setError(null);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/config/menu`);
+      const response = await api.get("/config/menu");
 
       if (response.data?.configValue) {
         const parsedConfig = JSON.parse(response.data.configValue);

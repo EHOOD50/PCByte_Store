@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../api/axios";
 import type { Product } from "../types/types";
 
-const API_BASE_URL = "http://192.168.100.226:8080/api";
 
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -14,7 +13,7 @@ export function useProducts() {
     setProductsError(null);
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/products?size=100`);
+      const response = await api.get("/products?size=100");
       const data =
         response.data?._embedded?.products ||
         response.data?.content ||
