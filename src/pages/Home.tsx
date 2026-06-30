@@ -2,7 +2,7 @@ import React from "react";
 import { Activity, ArrowUpDown } from "lucide-react";
 
 import type { Product } from "../types/types";
-
+import TechnicalService from "../components/home/TechnicalService";
 import Sidebar from "../components/layout/Sidebar";
 import Hero from "../components/home/Hero";
 import WhyChoosePCByte from "../components/home/WhyChoosePCByte";
@@ -50,6 +50,7 @@ function Home({
         <Hero onSelectCategory={setFilter} />
 
         <WhyChoosePCByte />
+        <TechnicalService />
 
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2">
