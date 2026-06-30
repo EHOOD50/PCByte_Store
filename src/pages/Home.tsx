@@ -1,6 +1,6 @@
 import React from "react";
 import { Activity, ArrowUpDown } from "lucide-react";
-
+import FeaturedProducts from "../components/home/FeaturedProducts";
 import type { Product } from "../types/types";
 import TechnicalService from "../components/home/TechnicalService";
 import Sidebar from "../components/layout/Sidebar";
@@ -50,6 +50,11 @@ function Home({
         <Hero onSelectCategory={setFilter} />
 
         <WhyChoosePCByte />
+        <FeaturedProducts
+  products={processedProducts}
+  onSelectProduct={onSelectProduct}
+  onAddToCart={onAddToCart}
+/>
         <TechnicalService />
 
         <div className="flex justify-between items-center mb-8">
