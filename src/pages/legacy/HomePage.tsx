@@ -1,11 +1,11 @@
 import React from 'react';
 import { Search, ShoppingCart, LogOut, Zap } from "lucide-react";
-import ProductCard from "../components/ProductCard";
-import Sidebar from '../components/layout/Sidebar';
-import Footer from '../components/Footer';
-import WhatsAppWidget from '../components/WhatsAppWidget';
+import ProductCard from "../../components/ProductCard";
+import Sidebar from '../../components/layout/Sidebar';
+import Footer from '../../components/Footer';
+import WhatsAppWidget from '../../components/WhatsAppWidget';
 import { Link, useNavigate } from 'react-router-dom';
-import { authService } from '../services/authService';
+import { authService } from '../../services/authService';
 
 export const HomePage = ({ 
   products, searchTerm, setSearchTerm, cart, setIsCartOpen, 
