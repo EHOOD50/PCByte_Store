@@ -7,7 +7,7 @@ import { useProducts } from "./hooks/useProducts";
 // Componentes
 import Navbar from "./components/layout/Navbar";
 import Home from "./pages/Home";
-
+import Products from "./pages/Products";
 import Cart from "./components/Cart";
 
 import AdminDashboard from "./components/AdminDashboard";
@@ -157,7 +157,23 @@ function App() {
     />
   }
 />
-
+      <Route
+  path="/productos"
+  element={
+    <Products
+      filter={filter}
+      setFilter={setFilter}
+      sortBy={sortBy}
+      setSortBy={setSortBy}
+      currentProducts={currentProducts}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      setCurrentPage={setCurrentPage}
+      onSelectProduct={setSelectedProduct}
+      onAddToCart={addToCart}
+    />
+  }
+/>
           {/* CHECKOUT SELECTION (Con Navbar Oscuro y Ancho sincronizado) */}
           <Route path="/checkout-selection" element={
             <div className="flex-1 flex flex-col bg-[#050505]">
