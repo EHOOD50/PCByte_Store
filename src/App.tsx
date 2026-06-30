@@ -143,15 +143,8 @@ function App() {
   path="/"
   element={
     <Home
-      filter={filter}
       setFilter={setFilter}
-      sortBy={sortBy}
-      setSortBy={setSortBy}
       processedProducts={processedProducts}
-      currentProducts={currentProducts}
-      currentPage={currentPage}
-      totalPages={totalPages}
-      setCurrentPage={setCurrentPage}
       onSelectProduct={setSelectedProduct}
       onAddToCart={addToCart}
     />
