@@ -18,11 +18,11 @@ export default function Hero({
   onRequestDiagnostic,
 }: HeroProps) {
   return (
-    <section className="relative mb-10 overflow-hidden rounded-[2.5rem] border border-white/10 bg-gradient-to-br from-slate-900 via-[#0a0a0a] to-black px-8 py-12 shadow-2xl md:px-12 md:py-16">
+    <section className="relative mb-10 overflow-hidden rounded-[2.5rem] border border-white/10 bg-gradient-to-br from-slate-900 via-[#0a0a0a] to-black px-8 py-14 shadow-2xl md:px-12 md:py-20">
       <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#97cf00]/20 blur-3xl" />
       <div className="absolute -bottom-28 -left-28 h-80 w-80 rounded-full bg-[#0066FF]/20 blur-3xl" />
 
-      <div className="relative z-10 mx-auto max-w-6xl text-center">
+      <div className="relative z-10 mx-auto max-w-5xl text-center">
         <div className="mb-8 flex justify-center">
           <img
             src={logo}
@@ -40,9 +40,10 @@ export default function Hero({
           <span className="text-[#97cf00]">conecta.</span>
         </h1>
 
-        <p className="mx-auto mt-6 max-w-3xl text-sm leading-7 text-slate-400 md:text-base">
-          Venta de equipos, periféricos, impresoras, software y servicio técnico
-          especializado para personas, hogares y empresas.
+        <p className="mx-auto mt-6 max-w-3xl text-sm leading-7 text-slate-300 md:text-lg md:leading-8">
+          Venta online de equipos tecnológicos, periféricos, impresoras y
+          software. Servicio técnico especializado con atención personalizada
+          para ayudarte a encontrar la mejor solución para tus necesidades.
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -67,6 +68,18 @@ export default function Hero({
           </button>
         </div>
 
+        <div className="mx-auto mt-10 max-w-3xl rounded-3xl border border-[#97cf00]/20 bg-[#97cf00]/5 p-6 text-left">
+          <p className="text-sm font-black uppercase tracking-widest text-[#97cf00]">
+            Nuestro compromiso
+          </p>
+
+          <p className="mt-3 text-sm leading-7 text-slate-300">
+            Diagnosticamos cada equipo con transparencia. Si una reparación no
+            tiene solución o no es conveniente para el cliente, lo diremos con
+            total honestidad.
+          </p>
+        </div>
+
         <div className="mt-10 grid gap-3 border-t border-white/10 pt-6 md:grid-cols-3">
           <TrustItem
             icon={<ShieldCheck size={16} />}
@@ -74,7 +87,7 @@ export default function Hero({
           />
           <TrustItem
             icon={<Zap size={16} />}
-            text="Soluciones rápidas y confiables"
+            text="Soluciones reales y confiables"
           />
           <TrustItem
             icon={<Headphones size={16} />}
