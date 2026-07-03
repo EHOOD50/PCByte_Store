@@ -50,7 +50,11 @@ function App() {
   const productsPerPage = 12;
 
   // --- LÓGICA DE NAVBAR CONDICIONAL ---
-  const hideNavbarPaths = ["/checkout", "/checkout-selection"];
+  const hideNavbarPaths = [
+  "/",
+  "/checkout",
+  "/checkout-selection",
+];
   const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
   

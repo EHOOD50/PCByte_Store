@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import FeaturedProducts from "../components/home/FeaturedProducts";
 import type { Product } from "../types/types";
-import TechnicalService from "../components/home/TechnicalService";
 import Hero from "../components/home/Hero";
 import WhyChoosePCByte from "../components/home/WhyChoosePCByte";
 import DiagnosticRequestModal from "../components/home/DiagnosticRequestModal";
@@ -15,12 +13,7 @@ interface HomeProps {
   onAddToCart: (product: Product) => void;
 }
 
-function Home({
-  setFilter,
-  processedProducts,
-  onSelectProduct,
-  onAddToCart,
-}: HomeProps) {
+function Home({ setFilter }: HomeProps) {
   const navigate = useNavigate();
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
 
@@ -29,27 +22,15 @@ function Home({
     navigate("/productos");
   };
 
-  const handleOpenDiagnostic = () => {
-    setIsDiagnosticOpen(true);
-  };
-
   return (
     <>
-      <main className="flex-1 overflow-y-auto p-8 custom-scrollbar pb-20">
+      <main className="flex-1 overflow-y-auto px-6 pt-4 pb-12 custom-scrollbar md:px-10 md:pt-6">
         <Hero
           onViewProducts={handleViewProducts}
-          onRequestDiagnostic={handleOpenDiagnostic}
+          onRequestDiagnostic={() => setIsDiagnosticOpen(true)}
         />
 
         <WhyChoosePCByte />
-
-        <FeaturedProducts
-          products={processedProducts}
-          onSelectProduct={onSelectProduct}
-          onAddToCart={onAddToCart}
-        />
-
-        <TechnicalService onRequestDiagnostic={handleOpenDiagnostic} />
       </main>
 
       <DiagnosticRequestModal
