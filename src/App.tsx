@@ -24,7 +24,7 @@ import { ShieldCheck,X } from "lucide-react";
 const CART_KEY = "pcbyte_cart_v1";
 
 function App() {
-  const { products } = useProducts();
+  const { products, loadingProducts } = useProducts();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -159,10 +159,12 @@ function App() {
   element={
     <Products
       filter={filter}
+      
       setFilter={setFilter}
       sortBy={sortBy}
       setSortBy={setSortBy}
       currentProducts={currentProducts}
+      loadingProducts={loadingProducts}
       currentPage={currentPage}
       totalPages={totalPages}
       setCurrentPage={setCurrentPage}

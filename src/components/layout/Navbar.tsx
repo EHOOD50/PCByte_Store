@@ -1,5 +1,12 @@
 import logo from "../../assets/logo.png";
-import { Search, ShoppingCart, ShieldCheck } from "lucide-react";
+import {
+  Search,
+  ShoppingCart,
+  ShieldCheck,
+  Home,
+  Laptop,
+  Wrench,
+} from "lucide-react";
 
 interface NavbarProps {
   searchTerm: string;
@@ -19,63 +26,97 @@ export default function Navbar({
   onGoHome,
 }: NavbarProps) {
   return (
-    <nav className="sticky top-0 z-50 h-20 px-6 flex items-center justify-between border-b-2 border-[#97cf00] bg-slate-900 shadow-2xl">
+    <nav className="sticky top-0 z-50 border-b border-[#97cf00]/30 bg-[#08101d]/95 backdrop-blur-xl">
 
-      {/* Logo */}
-      <button
-        onClick={onGoHome}
-        className="flex items-center transition-transform duration-300 hover:scale-105"
-      >
-        <img
-          src={logo}
-          alt="PCByte"
-          className="h-12 w-auto object-contain"
-        />
-      </button>
+      <div className="mx-auto flex h-26 items-center justify-between px-6">
 
-      {/* Buscador */}
-      <div className="flex-1 max-w-xl px-8 hidden md:block">
-        <div className="relative group">
-          <Search
-            size={16}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#97cf00]"
+        {/* LOGO */}
+
+        <button
+          onClick={onGoHome}
+          className="flex items-center hover:scale-105 transition"
+        >
+          <img
+            src={logo}
+            alt="PCByte"
+            className="h-24 w-auto"
           />
+        </button>
 
-          <input
-            type="text"
-            placeholder="BUSCAR EN EL SISTEMA..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-12 text-[10px] font-black uppercase outline-none transition-all focus:border-[#97cf00]"
-          />
+        {/* MENÚ */}
+
+        <div className="hidden xl:flex items-center gap-10">
+
+          <button
+            onClick={onGoHome}
+            className="flex items-center gap-2 text-sm font-bold text-slate-300 hover:text-[#97cf00] transition"
+          >
+            <Home size={17} />
+            Inicio
+          </button>
+
+          <span className="flex items-center gap-2 text-sm font-bold text-[#97cf00]">
+            <Laptop size={17} />
+            Productos
+          </span>
+
+          <button
+            className="flex items-center gap-2 text-sm font-bold text-slate-300 hover:text-[#97cf00] transition"
+          >
+            <Wrench size={17} />
+            Servicio Técnico
+          </button>
+
         </div>
-      </div>
 
-      {/* Botones */}
-      <div className="flex items-center gap-3">
+        {/* BUSCADOR */}
 
-        <button
-          onClick={onOpenAdmin}
-          className="rounded-xl border border-white/5 bg-white/5 p-2.5 text-slate-400 transition-all hover:text-[#97cf00]"
-        >
-          <ShieldCheck size={20} />
-        </button>
+<div className="hidden lg:block w-full max-w-md">
 
-        <button
-          onClick={onOpenCart}
-          className="group relative rounded-xl bg-[#0066FF] p-3 shadow-lg transition-all hover:bg-[#97cf00]"
-        >
-          <ShoppingCart
-            size={22}
-            className="text-white"
-          />
+  <div className="relative">
 
-          {cartItemCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-slate-900 bg-white text-[9px] font-black text-slate-900">
-              {cartItemCount}
-            </span>
-          )}
-        </button>
+    <Search
+      size={17}
+      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+    />
+
+    <input
+      value={searchTerm}
+      onChange={(e) => onSearchChange(e.target.value)}
+      placeholder="Buscar productos..."
+      className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white outline-none transition focus:border-[#97cf00]"
+    />
+
+  </div>
+
+</div>
+
+        {/* BOTONES */}
+
+        <div className="flex items-center gap-3">
+
+          <button
+            onClick={onOpenAdmin}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-slate-400 hover:bg-[#97cf00] hover:text-black transition"
+          >
+            <ShieldCheck size={18} />
+          </button>
+
+          <button
+            onClick={onOpenCart}
+            className="relative flex h-12 w-12 items-center justify-center rounded-full bg-[#0066FF] text-white hover:bg-[#97cf00] hover:text-black transition"
+          >
+            <ShoppingCart size={21} />
+
+            {cartItemCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[9px] font-black text-black">
+                {cartItemCount}
+              </span>
+            )}
+
+          </button>
+
+        </div>
 
       </div>
 

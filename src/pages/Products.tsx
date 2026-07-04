@@ -12,6 +12,7 @@ interface ProductsProps {
   setSortBy: (value: string) => void;
 
   currentProducts: Product[];
+  loadingProducts: boolean;
 
   currentPage: number;
   totalPages: number;
@@ -27,6 +28,7 @@ export default function Products({
   sortBy,
   setSortBy,
   currentProducts,
+  loadingProducts,
   currentPage,
   totalPages,
   setCurrentPage,
@@ -43,6 +45,7 @@ export default function Products({
       <main className="flex-1 overflow-y-auto p-8 custom-scrollbar pb-20">
         <ProductCatalog
           products={currentProducts}
+          loading={loadingProducts}
           sortBy={sortBy}
           setSortBy={setSortBy}
           currentPage={currentPage}
