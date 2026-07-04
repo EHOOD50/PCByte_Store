@@ -49,6 +49,10 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const productsPerPage = 12;
 
+  useEffect(() => {
+  setCurrentPage(1);
+}, [filter, searchTerm, sortBy]);
+
   // --- LÓGICA DE NAVBAR CONDICIONAL ---
   const hideNavbarPaths = [
   "/",
@@ -123,7 +127,13 @@ function App() {
   const currentProducts = processedProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage);
 
   if (isAdmin) return <AdminDashboard onLogout={() => setIsAdmin(false)} />;
+const handleSearchChange = (value: string) => {
+  setSearchTerm(value);
 
+  if (value.trim() !== "") {
+    setFilter("TODOS");
+  }
+};
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans flex flex-col selection:bg-[#0066FF]/30">
       
@@ -131,7 +141,7 @@ function App() {
       {!shouldHideNavbar && (
         <Navbar
           searchTerm={searchTerm}
-           onSearchChange={setSearchTerm}
+           onSearchChange={handleSearchChange}
            cartItemCount={cart.reduce((acc, item) => acc + item.quantity, 0)}
            onOpenAdmin={() => setIsAdmin(true)}
            onOpenCart={() => setIsCartOpen(true)}

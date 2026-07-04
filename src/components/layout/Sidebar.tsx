@@ -21,7 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeCategory, onSelectCategory }) =
   if (loading) {
     return (
       <aside className="w-72 hidden lg:flex flex-col gap-6">
-        <div className="bg-[#111111]/80 backdrop-blur-xl rounded-[2.5rem] p-8 border border-white/5 animate-pulse space-y-8">
+        <div className="bg-[#111111]/80 backdrop-blur-xl rounded-[2.5rem] p-6 border border-white/5 shadow-2xl flex flex-col h-full overflow-y-auto custom-scrollbar">
           <div className="h-4 w-24 bg-white/10 rounded-full"></div>
           <div className="space-y-4">
             <div className="h-12 bg-white/5 rounded-2xl"></div>
@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeCategory, onSelectCategory }) =
   }
 
   return (
-    <aside className="w-72 hidden lg:flex flex-col gap-6 sticky top-10 h-[calc(100vh-120px)]">
+    <aside className="w-72 hidden lg:flex flex-col gap-6 sticky top-0 h-[calc(100vh-90px)]">
       <div className="bg-[#111111]/80 backdrop-blur-xl rounded-[2.5rem] p-8 border border-white/5 shadow-2xl flex flex-col h-full overflow-y-auto custom-scrollbar">
         
         {/* HEADER DEL SIDEBAR 

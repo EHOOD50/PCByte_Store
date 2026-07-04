@@ -42,7 +42,7 @@ export default function Products({
         onSelectCategory={setFilter}
       />
 
-      <main className="flex-1 overflow-y-auto p-8 custom-scrollbar pb-20">
+      <main className="flex-1 overflow-y-auto px-8 pt-0 pb-20 custom-scrollbar">
         <ProductCatalog
           products={currentProducts}
           loading={loadingProducts}
