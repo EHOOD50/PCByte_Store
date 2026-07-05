@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 
-import type { CartItem } from "./types/types";
+import type { Product,CartItem } from "./types/types";
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
 import { useProducts } from "./hooks/useProducts";
 
