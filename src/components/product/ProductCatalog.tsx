@@ -8,7 +8,9 @@ import EmptyCatalog from "./EmptyCatalog";
 interface ProductCatalogProps {
   products: Product[];
   loading: boolean;
-
+  totalProducts: number;
+  activeCategory: string;
+  searchTerm: string;
   sortBy: string;
   setSortBy: (value: string) => void;
 
@@ -23,6 +25,9 @@ interface ProductCatalogProps {
 export default function ProductCatalog({
   products,
   loading,
+  totalProducts,
+  activeCategory,
+  searchTerm,
   sortBy,
   setSortBy,
   currentPage,
@@ -31,30 +36,41 @@ export default function ProductCatalog({
   onSelectProduct,
   onAddToCart,
 }: ProductCatalogProps) {
+
+  const headerTitle =
+  searchTerm.trim() !== ""
+    ? `"${searchTerm}"`
+    : activeCategory !== "TODOS"
+      ? activeCategory
+      : "PRODUCTOS";
+
+const headerSubtitle =
+  searchTerm.trim() !== ""
+    ? "Resultados de búsqueda"
+    : activeCategory !== "TODOS"
+      ? "Categoría seleccionada"
+      : "Tecnología seleccionada para ti.";
+      
   return (
     <section className="mt-3">
       <div className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
   <div>
-    <div className="mb-2 flex items-center gap-2">
-      <Activity size={14} className="text-[#97cf00]" />
+  <span className="text-[10px] font-black uppercase tracking-[0.35em] text-[#97cf00]">
+    {headerSubtitle}
+  </span>
 
-      <span className="font-mono text-[10px] uppercase tracking-[0.35em] text-[#97cf00]">
-        Catálogo PCByte
-      </span>
-    </div>
+  <h1 className="mt-2 text-4xl font-black uppercase tracking-tight text-white">
+    {headerTitle}
+  </h1>
 
-    <h1 className="text-3xl font-black uppercase tracking-tight text-white">
-      Productos
-    </h1>
-
-    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-      Encuentra componentes, periféricos y equipos seleccionados para potenciar tu setup.
-    </p>
-
-    <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-slate-500">
-      {loading ? "Cargando productos..." : `${products.length} productos disponibles`}
-    </p>
-  </div>
+  <p className="mt-4 text-sm text-slate-400">
+    {loading
+      ? "Cargando productos..."
+      : `${totalProducts} producto${totalProducts !== 1 ? "s" : ""} encontrado${
+          totalProducts !== 1 ? "s" : ""
+        }`}
+  </p>
+</div>
 
   <div className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 lg:w-auto lg:min-w-[230px]">
     <div className="flex items-center gap-2">
@@ -94,12 +110,13 @@ export default function ProductCatalog({
 ) : products.length === 0 ? (
   <EmptyCatalog />
 ) : (
-  products.map((product) => (
-    <div
-      key={product.id}
-      onClick={() => onSelectProduct(product)}
-      className="cursor-pointer"
-    >
+  products.map((product, index) => (
+  <div
+    key={product.id}
+    onClick={() => onSelectProduct(product)}
+    className="cursor-pointer animate-[fadeUp_0.45s_ease-out_both]"
+    style={{ animationDelay: `${index * 45}ms` }}
+  >
       <ProductCard
         product={product}
         addToCart={(e: React.MouseEvent) => {

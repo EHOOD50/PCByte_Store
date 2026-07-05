@@ -13,7 +13,9 @@ interface ProductsProps {
 
   currentProducts: Product[];
   loadingProducts: boolean;
-
+  totalProducts: number;
+  activeCategory: string;
+  searchTerm: string;
   currentPage: number;
   totalPages: number;
   setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
@@ -29,6 +31,9 @@ export default function Products({
   setSortBy,
   currentProducts,
   loadingProducts,
+  totalProducts,
+  activeCategory,
+  searchTerm,
   currentPage,
   totalPages,
   setCurrentPage,
@@ -46,6 +51,9 @@ export default function Products({
         <ProductCatalog
           products={currentProducts}
           loading={loadingProducts}
+          totalProducts={totalProducts}
+          activeCategory={activeCategory}
+          searchTerm={searchTerm}
           sortBy={sortBy}
           setSortBy={setSortBy}
           currentPage={currentPage}

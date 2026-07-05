@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 
-import type { Product, CartItem } from "./types/types";
+import type { CartItem } from "./types/types";
 import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
 import { useProducts } from "./hooks/useProducts";
 
@@ -9,7 +9,7 @@ import Navbar from "./components/layout/Navbar";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import Cart from "./components/Cart";
-
+import ProductDetail from "./pages/ProductDetail";
 import AdminDashboard from "./components/AdminDashboard";
 import SuccessPage from "./components/SuccessPage";
 import WhatsAppWidget from "./components/WhatsAppWidget";
@@ -19,7 +19,7 @@ import CheckoutSelection from './pages/CheckoutSelection';
 import { CheckoutPage } from "./pages/ChecKoutPage";
 
 // Iconos
-import { ShieldCheck,X } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 const CART_KEY = "pcbyte_cart_v1";
 
@@ -46,7 +46,6 @@ function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const productsPerPage = 12;
 
   useEffect(() => {
@@ -159,7 +158,7 @@ const handleSearchChange = (value: string) => {
     <Home
       setFilter={setFilter}
       processedProducts={processedProducts}
-      onSelectProduct={setSelectedProduct}
+      onSelectProduct={(product) => navigate(`/productos/${product.id}`)}
       onAddToCart={addToCart}
     />
   }
@@ -175,14 +174,21 @@ const handleSearchChange = (value: string) => {
       setSortBy={setSortBy}
       currentProducts={currentProducts}
       loadingProducts={loadingProducts}
+      totalProducts={processedProducts.length}
+      activeCategory={filter}
+      searchTerm={searchTerm}
       currentPage={currentPage}
       totalPages={totalPages}
       setCurrentPage={setCurrentPage}
-      onSelectProduct={setSelectedProduct}
+      onSelectProduct={(product) => navigate(`/productos/${product.id}`)}
       onAddToCart={addToCart}
     />
   }
 />
+      <Route
+        path="/productos/:id"
+        element={<ProductDetail onAddToCart={addToCart} />}
+      />
           {/* CHECKOUT SELECTION (Con Navbar Oscuro y Ancho sincronizado) */}
           <Route path="/checkout-selection" element={
             <div className="flex-1 flex flex-col bg-[#050505]">
@@ -225,23 +231,7 @@ const handleSearchChange = (value: string) => {
       </div>
 
       {/* MODALES GLOBALES */}
-      {selectedProduct && (
-        <div className="fixed inset-0 z-[150] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row relative shadow-2xl border-4 border-[#97cf00]/20 text-slate-900 animate-in fade-in zoom-in">
-            <button onClick={() => setSelectedProduct(null)} className="absolute top-6 right-6 text-slate-400 p-2 bg-slate-100 rounded-full hover:text-red-500 transition-all z-10"><X size={24} /></button>
-            <div className="md:w-1/2 bg-slate-50 flex items-center justify-center p-12">
-              <img src={selectedProduct.imageUrl} className="max-w-full max-h-100 object-contain drop-shadow-2xl" alt={selectedProduct.name} />
-            </div>
-            <div className="md:w-1/2 p-12 flex flex-col justify-center">
-              <span className="text-[#0066FF] font-black text-[10px] uppercase mb-2">{selectedProduct.category?.name}</span>
-              <h2 className="text-4xl font-black mb-4 italic uppercase leading-none">{selectedProduct.name}</h2>
-              <p className="text-slate-500 text-sm mb-8 border-l-4 border-[#97cf00] pl-4">{selectedProduct.description}</p>
-              <div className="text-5xl font-black mb-8">${selectedProduct.price.toLocaleString('es-CL')}</div>
-              <button onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }} className="w-full py-5 rounded-2xl bg-[#0066FF] text-white font-black uppercase text-sm shadow-xl hover:bg-[#97cf00] hover:text-black transition-all active:scale-95">Add to Buffer</button>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {isCartOpen && (
         <div className="fixed inset-0 z-[200] flex justify-end">
