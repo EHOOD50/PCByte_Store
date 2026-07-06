@@ -22,7 +22,7 @@ export default function ProductPurchasePanel({
   const isLowStock = product.stock > 0 && product.stock <= 5;
 
   return (
-    <div className="sticky top-28 flex flex-col rounded-[2.5rem] border border-white/10 bg-[#111111]/90 p-8 shadow-2xl backdrop-blur-xl">
+    <div className="sticky top-42 flex flex-col rounded-[2.5rem] border border-white/10 bg-[#111111]/90 p-8 shadow-2xl backdrop-blur-xl">
       <span className="text-[10px] font-black uppercase tracking-[0.35em] text-[#97cf00]">
         {product.category?.name ?? "Producto"}
       </span>

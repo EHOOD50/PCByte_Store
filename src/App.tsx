@@ -149,7 +149,7 @@ const handleSearchChange = (value: string) => {
         )}
 
       {/* RUTAS PRINCIPALES */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex">
         <Routes>
           {/* HOME PAGE INTEGRADO */}
           <Route

@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Package, Boxes, Hash } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import ProductGallery from "../components/product/detail/ProductGallery";
 import ProductPurchasePanel from "../components/product/detail/ProductPurchasePanel";
+import ProductTabs from "../components/product/detail/ProductTabs";
+import RelatedProducts from "../components/product/detail/RelatedProducts";
 import { useProducts } from "../hooks/useProducts";
 import type { Product } from "../types/types";
-import ProductTabs from "../components/product/detail/ProductTabs";
 
 interface ProductDetailProps {
   onAddToCart: (product: Product) => void;
@@ -16,7 +17,7 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { products, loadingProducts } = useProducts();
-  const [activeTab, setActiveTab] = useState<"description" | "specs">("description");
+
   const product = useMemo(() => {
     return products.find((p) => String(p.id) === String(id));
   }, [products, id]);
@@ -45,7 +46,10 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
     return (
       <main className="flex flex-1 items-center justify-center bg-[#0a0a0a] p-8 text-white">
         <div className="max-w-md text-center">
-          <h1 className="text-3xl font-black uppercase">Producto no encontrado</h1>
+          <h1 className="text-3xl font-black uppercase">
+            Producto no encontrado
+          </h1>
+
           <p className="mt-4 text-sm text-slate-400">
             El producto que buscas no existe o ya no está disponible.
           </p>
@@ -61,31 +65,48 @@ export default function ProductDetail({ onAddToCart }: ProductDetailProps) {
     );
   }
 
-  const isOutOfStock = product.stock === 0;
-  const isLowStock = product.stock > 0 && product.stock <= 5;
-
   return (
-    <main className="flex-1 overflow-y-auto bg-[#0a0a0a] px-8 py-6 text-white custom-scrollbar">
+  <>
+    {/* Barra fija */}
+    <div className="fixed left-0 right-0 top-26 z-40 bg-[#0a0a0a]/90 px-8 py-2 backdrop-blur-xl border-b border-white/5">
       <div className="mx-auto max-w-6xl">
         <button
           onClick={() => navigate("/productos")}
-          className="mb-6 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-300 transition-all hover:border-[#97cf00]/60 hover:text-white"
+          className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-300 transition-all hover:border-[#97cf00]/60 hover:text-white"
         >
           <ArrowLeft size={15} />
           Volver al catálogo
         </button>
+      </div>
+    </div>
 
-        <section className="grid items-start gap-8 xl:grid-cols-[1fr_0.85fr]">
-  <ProductGallery product={product} />
+    <main className="flex-1 bg-[#0a0a0a] px-8 pt-16 pb-8 text-white">
+      <div className="mx-auto max-w-6xl">
 
-  <ProductPurchasePanel
-    product={product}
-    onAddToCart={onAddToCart}
-  />
-</section>
+        {/* Imagen + Panel derecho */}
+        <div className="grid items-start gap-8 xl:grid-cols-[1fr_0.85fr]">
 
-        <ProductTabs product={product} />
+          <div>
+            <ProductGallery product={product} />
+
+            <ProductTabs product={product} />
+          </div>
+
+          <ProductPurchasePanel
+            product={product}
+            onAddToCart={onAddToCart}
+          />
+
+        </div>
+
+        {/* Productos relacionados */}
+        <RelatedProducts
+          product={product}
+          onAddToCart={onAddToCart}
+        />
+
       </div>
     </main>
-  );
+  </>
+);
 }

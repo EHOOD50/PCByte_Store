@@ -19,17 +19,24 @@ export default function ProductTabs({ product }: ProductTabsProps) {
 
       <div className="border-b border-white/10">
 
-        <nav className="flex gap-10">
+        <nav className="flex flex-wrap items-center gap-8">
 
           <button
             onClick={() => setActiveTab("description")}
-            className={`pb-4 text-sm font-black transition-all ${
-              activeTab === "description"
-                ? "border-b-2 border-[#0066FF] text-white"
-                : "text-slate-500 hover:text-white"
-            }`}
+            className={`group relative pb-4 text-sm font-bold transition-all duration-300 ${
+  activeTab === "description"
+    ? "text-white"
+    : "text-slate-500 hover:text-slate-300"
+}`}
           >
             <div className="flex items-center gap-2">
+                <span
+            className={`absolute bottom-0 left-0 h-[2px] rounded-full bg-[#0066FF] transition-all duration-300 ${
+              activeTab === "description"
+               ? "w-full"
+              : "w-0 group-hover:w-full"
+            }`}
+/>
               <FileText size={16} />
               Descripción
             </div>
@@ -37,13 +44,20 @@ export default function ProductTabs({ product }: ProductTabsProps) {
 
           <button
             onClick={() => setActiveTab("specifications")}
-            className={`pb-4 text-sm font-black transition-all ${
-              activeTab === "specifications"
-                ? "border-b-2 border-[#0066FF] text-white"
-                : "text-slate-500 hover:text-white"
-            }`}
+            className={`group relative pb-4 text-sm font-bold transition-all duration-300 ${
+  activeTab === "specifications"
+    ? "text-white"
+    : "text-slate-500 hover:text-slate-300"
+}`}
           >
             <div className="flex items-center gap-2">
+                <span
+            className={`absolute bottom-0 left-0 h-[2px] rounded-full bg-[#0066FF] transition-all duration-300 ${
+              activeTab === "specifications"
+                ? "w-full"
+                   : "w-0 group-hover:w-full"
+             }`}
+/>
               <ClipboardList size={16} />
               Especificaciones
             </div>
@@ -51,13 +65,20 @@ export default function ProductTabs({ product }: ProductTabsProps) {
 
           <button
             onClick={() => setActiveTab("warranty")}
-            className={`pb-4 text-sm font-black transition-all ${
-              activeTab === "warranty"
-                ? "border-b-2 border-[#0066FF] text-white"
-                : "text-slate-500 hover:text-white"
+            className={`group relative pb-4 text-sm font-bold transition-all duration-300 ${
+            activeTab === "warranty"
+              ? "text-white"
+              : "text-slate-500 hover:text-slate-300"
             }`}
           >
             <div className="flex items-center gap-2">
+                <span
+             className={`absolute bottom-0 left-0 h-[2px] rounded-full bg-[#0066FF] transition-all duration-300 ${
+                activeTab === "warranty"
+                 ? "w-full"
+                 : "w-0 group-hover:w-full"
+             }`}
+/>
               <ShieldCheck size={16} />
               Garantía y Soporte
             </div>
@@ -83,69 +104,121 @@ export default function ProductTabs({ product }: ProductTabsProps) {
         )}
 
         {activeTab === "specifications" && (
+  <div className="max-w-4xl">
+    <h3 className="mb-6 text-xl font-black uppercase tracking-tight text-white">
+      Especificaciones
+    </h3>
 
-          <div className="max-w-3xl divide-y divide-white/10">
+    <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.03]">
+      <div className="grid grid-cols-1 divide-y divide-white/10">
+        <div className="grid gap-2 px-6 py-5 sm:grid-cols-[220px_1fr] sm:items-center">
+          <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <Package size={15} className="text-[#97cf00]" />
+            Categoría
+          </span>
 
-            <div className="flex justify-between py-4">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Package size={16} />
-                Categoría
-              </div>
+          <span className="text-sm font-bold text-white">
+            {product.category?.name ?? "Producto"}
+          </span>
+        </div>
 
-              <span>{product.category?.name}</span>
-            </div>
+        <div className="grid gap-2 px-6 py-5 sm:grid-cols-[220px_1fr] sm:items-center">
+          <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <Boxes size={15} className="text-[#97cf00]" />
+            Stock
+          </span>
 
-            <div className="flex justify-between py-4">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Boxes size={16} />
-                Stock
-              </div>
+          <span className="text-sm font-bold text-white">
+            {product.stock} unidades
+          </span>
+        </div>
 
-              <span>{product.stock} unidades</span>
-            </div>
+        <div className="grid gap-2 px-6 py-5 sm:grid-cols-[220px_1fr] sm:items-center">
+          <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <Hash size={15} className="text-[#97cf00]" />
+            Código interno
+          </span>
 
-            <div className="flex justify-between py-4">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Hash size={16} />
-                Código
-              </div>
+          <span className="text-sm font-bold text-white">
+            PCB-{String(product.id).padStart(5, "0")}
+          </span>
+        </div>
+      </div>
+    </div>
 
-              <span>
-                PCB-{String(product.id).padStart(5, "0")}
-              </span>
+    <p className="mt-5 text-xs leading-6 text-slate-500">
+      Las especificaciones completas del producto estarán disponibles cuando se
+      integren los datos técnicos desde el catálogo avanzado de PCByte.
+    </p>
+  </div>
+)}
 
-            </div>
-
-          </div>
-
-        )}
+        
 
         {activeTab === "warranty" && (
+  <div className="max-w-5xl">
 
-          <div className="max-w-4xl space-y-6">
+    <h3 className="mb-6 text-xl font-black uppercase tracking-tight text-white">
+      Garantía y Soporte PCByte
+    </h3>
 
-            <p className="leading-8 text-slate-300">
-              Todos los productos comercializados por <strong>PCByte</strong>
-              cuentan con garantía conforme a la legislación chilena.
-              Además, nuestro equipo técnico puede ayudarte durante el proceso
-              de garantía y resolver cualquier duda relacionada con tu compra.
-            </p>
+    <div className="rounded-[2rem] border border-[#97cf00]/20 bg-[#97cf00]/5 p-6">
 
-            <ul className="space-y-3 text-slate-300">
+      <p className="leading-8 text-slate-300">
+        Al comprar en <strong className="text-white">PCByte</strong> no solo
+        adquieres un producto. También cuentas con el respaldo de nuestro
+        equipo técnico para acompañarte antes, durante y después de tu compra.
+      </p>
 
-              <li>✔ Garantía legal.</li>
+    </div>
 
-              <li>✔ Gestión con fabricante cuando corresponda.</li>
+    <div className="mt-8 grid gap-4 md:grid-cols-2">
 
-              <li>✔ Servicio técnico especializado.</li>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <h4 className="mb-4 font-black uppercase text-[#97cf00]">
+          Incluye
+        </h4>
 
-              <li>✔ Atención postventa.</li>
+        <ul className="space-y-3 text-sm text-slate-300">
 
-            </ul>
+          <li>✔ Garantía legal conforme a la legislación chilena.</li>
 
-          </div>
+          <li>✔ Garantía del fabricante cuando corresponda.</li>
 
-        )}
+          <li>✔ Gestión de garantía con proveedores.</li>
+
+          <li>✔ Servicio técnico especializado.</li>
+
+          <li>✔ Atención postventa.</li>
+
+        </ul>
+
+      </div>
+
+      <div className="rounded-2xl border border-[#0066FF]/30 bg-[#0066FF]/5 p-5">
+
+        <h4 className="mb-4 font-black uppercase text-[#0066FF]">
+          ¿Necesitas ayuda?
+        </h4>
+
+        <p className="leading-7 text-slate-300">
+          Si tienes dudas sobre la compatibilidad de este producto con tu
+          computador o notebook, nuestro equipo puede orientarte antes de
+          realizar la compra.
+        </p>
+
+        <button
+          className="mt-6 rounded-xl bg-[#25D366] px-5 py-3 text-xs font-black uppercase tracking-widest text-black transition-all hover:scale-105"
+        >
+          Hablar con un especialista
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
 
       </div>
 
