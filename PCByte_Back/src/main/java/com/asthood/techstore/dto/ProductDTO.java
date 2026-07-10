@@ -11,6 +11,8 @@ public class ProductDTO {
     private String description;
     private BigDecimal price;
     private Integer stock;
-    private Category category; // Aquí está el objeto completo
+    private Category category;
+    private Long brandId;
+    private String brandName;
     private String imageUrl;
 }

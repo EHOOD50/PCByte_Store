@@ -18,8 +18,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // 🔍 Buscar por nombre (Usado por el Webhook)
     Optional<Product> findByName(String name);
 
-    Page<Product> findByNameContainingIgnoreCaseAndCategoryNameContainingIgnoreCase(
-            String name, String categoryName, Pageable pageable);
+    Page<Product> findByNameContainingIgnoreCaseAndCategoryNameContainingIgnoreCaseAndBrandNameContainingIgnoreCase(
+            String name,
+            String categoryName,
+            String brandName,
+            Pageable pageable);
 
     // 📉 Descontar stock por ID con validación de cantidad
     @Modifying

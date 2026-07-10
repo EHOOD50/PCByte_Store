@@ -22,5 +22,7 @@ public class ProductCreateDTO {
     @NotNull(message = "La categoría es obligatoria")
     private Long categoryId;
 
+    private Long brandId;
+
     private String imageUrl;
 }

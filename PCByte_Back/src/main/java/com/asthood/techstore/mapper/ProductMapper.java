@@ -20,6 +20,12 @@ public class ProductMapper {
         dto.setImageUrl(entity.getImageUrl());
 
         dto.setCategory(entity.getCategory());
+
+        if (entity.getBrand() != null) {
+            dto.setBrandId(entity.getBrand().getId());
+            dto.setBrandName(entity.getBrand().getName());
+        }
+
         return dto;
     }
 

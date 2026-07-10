@@ -1,5 +1,6 @@
 package com.asthood.techstore.service;
 
+import com.asthood.techstore.domain.entity.Brand;
 import com.asthood.techstore.domain.entity.Category;
 import com.asthood.techstore.domain.entity.Product;
 import com.asthood.techstore.dto.CartItemDTO; // ✨ Asegúrate de importar tu DTO
@@ -7,6 +8,7 @@ import com.asthood.techstore.dto.ProductCreateDTO;
 import com.asthood.techstore.dto.ProductDTO;
 import com.asthood.techstore.exception.ProductNotFoundException;
 import com.asthood.techstore.mapper.ProductMapper;
+import com.asthood.techstore.repository.BrandRepository;
 import com.asthood.techstore.repository.CategoryRepository;
 import com.asthood.techstore.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,10 +24,16 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final BrandRepository brandRepository;
 
-    public ProductService(ProductRepository productRepository, CategoryRepository categoryRepository) {
+    public ProductService(
+            ProductRepository productRepository,
+            CategoryRepository categoryRepository,
+            BrandRepository brandRepository
+    ) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
+        this.brandRepository = brandRepository;
     }
 
     // ✨ NUEVO: Lógica para descontar stock tras la compra exitosa
@@ -48,9 +56,21 @@ public class ProductService {
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Categoría no encontrada con ID: " + dto.getCategoryId()));
 
+        Brand brand = null;
+
+        if (dto.getBrandId() != null) {
+            brand = brandRepository.findById(dto.getBrandId())
+                    .orElseThrow(() ->
+                            new EntityNotFoundException(
+                                    "Marca no encontrada con ID: " + dto.getBrandId()
+                            )
+                    );
+        }
+
         Product product = ProductMapper.toEntity(dto);
         product.setImageUrl(dto.getImageUrl());
         product.setCategory(category);
+        product.setBrand(brand);
 
         return ProductMapper.toDTO(productRepository.save(product));
     }
@@ -81,6 +101,15 @@ public class ProductService {
             existing.setCategory(category);
         }
 
+        if (dto.getBrandId() != null) {
+            Brand brand = brandRepository.findById(dto.getBrandId())
+                    .orElseThrow(() ->
+                            new EntityNotFoundException("Marca no encontrada")
+                    );
+
+            existing.setBrand(brand);
+        }
+
         return ProductMapper.toDTO(productRepository.save(existing));
     }
 
@@ -105,14 +134,24 @@ public class ProductService {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Product> productPage;
 
-        if ((name != null && !name.isEmpty()) || (category != null && !category.isEmpty())) {
-            productPage = productRepository.findByNameContainingIgnoreCaseAndCategoryNameContainingIgnoreCase(
-                    name != null ? name : "",
-                    category != null ? category : "",
-                    pageable
-            );
+        String productName = name != null ? name : "";
+        String categoryName = category != null ? category : "";
+        String brandName = "";
+
+        if (!productName.isEmpty() || !categoryName.isEmpty() || !brandName.isEmpty()) {
+
+            productPage = productRepository
+                    .findByNameContainingIgnoreCaseAndCategoryNameContainingIgnoreCaseAndBrandNameContainingIgnoreCase(
+                            productName,
+                            categoryName,
+                            brandName,
+                            pageable
+                    );
+
         } else {
+
             productPage = productRepository.findAll(pageable);
+
         }
 
         return productPage.map(ProductMapper::toDTO);

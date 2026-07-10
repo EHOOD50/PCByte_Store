@@ -45,6 +45,10 @@ public class Product {
     @NotNull(message = "La categoría es obligatoria") // Usa NotNull para objetos
     private Category category;
 
+    @ManyToOne
+    @JoinColumn(name = "brand_id")
+    private Brand brand;
+
     @Column(name = "image_url")
     @JsonProperty("imageUrl") // Esto fuerza a Java a entender "imageUrl" desde el JSON
     private String imageUrl;
