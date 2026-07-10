@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/techstore
+    username: postgres
+    password: admin123
+
+  data:
+    web:
+      page-serialization-mode: via-dto
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+
+mercadopago:
+  access:
+    token: ${MP_ACCESS_TOKEN:APP_USR-5611136922954501-020919-cd3df22478cbd7f15431602045cdc2ca-3193516088}
+
+# 🚩 CORRECCIÓN APLICADA: Un solo 'app' y variables alineadas
+app:
+  base-url: https://unrarefied-unpervasive-pandora.ngrok-free.dev
+  frontend-url: https://unrarefied-unpervasive-pandora.ngrok-free.dev
