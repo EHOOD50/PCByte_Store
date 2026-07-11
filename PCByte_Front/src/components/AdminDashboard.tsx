@@ -4,18 +4,9 @@ import {
   Plus, Trash2, Edit3, LogOut, Cpu, X, 
   Search, Layout, ChevronRight, Save, Settings, Filter, MapPin, User, CheckCircle2, Clock
 } from 'lucide-react';
+import ProductManager from "./admin/ProductManager";
+import adminApi from "../api/adminApi";
 
-const adminAuth = btoa("admin:1234"); 
-const API_BASE_URL = 'http://192.168.100.226:8080/api'; 
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Authorization': `Basic ${adminAuth}`,
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true' 
-  }
-});
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -58,7 +49,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const resCat = await api.get('/categories').catch(() => ({ data: [] }));
+      const resCat = await adminApi.get('/categories').catch(() => ({ data: [] }));
       const contentCat = resCat.data?._embedded?.categories || resCat.data || [];
       const cleanCats = Array.isArray(contentCat) ? contentCat : [];
       setCategories(cleanCats);
@@ -67,16 +58,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         setFormData(prev => ({ ...prev, categoryId: cleanCats[0].id }));
       }
 
-      const resConfig = await api.get('/config/menu').catch(() => null);
+      const resConfig = await adminApi.get('/config/menu').catch(() => null);
       if (resConfig?.data?.configValue) {
         setMenuGroups(JSON.parse(resConfig.data.configValue));
       }
 
-      const resOrders = await api.get('/admin/orders').catch(() => ({ data: [] }));
+      const resOrders = await adminApi.get('/admin/orders').catch(() => ({ data: [] }));
       const contentOrders = resOrders.data?._embedded?.orders || resOrders.data?.content || resOrders.data || [];
       setOrders(Array.isArray(contentOrders) ? contentOrders : []);
 
-      const resProd = await api.get('/products?size=100').catch(() => ({ data: [] }));
+      const resProd = await adminApi.get('/products?size=100').catch(() => ({ data: [] }));
       const contentProd = resProd.data?._embedded?.products || resProd.data?.content || resProd.data || [];
       setProducts(Array.isArray(contentProd) ? contentProd : []);
 
@@ -118,7 +109,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   const updateOrderStatus = async (id: number, status: string) => {
     try { 
-      await api.patch(`/admin/orders/${id}/status`, { status }); 
+      await adminApi.patch(`/admin/orders/${id}/status`, { status }); 
       showToast("Estado Actualizado"); 
       fetchData();
     } catch (e) { showToast("Error en cambio"); }
@@ -128,8 +119,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     e.preventDefault();
     try {
       const payload = { ...formData, category: { id: formData.categoryId } };
-      if (formData.id) await api.put(`/products/${formData.id}`, payload);
-      else await api.post('/products', payload);
+      if (formData.id) await adminApi.put(`/products/${formData.id}`, payload);
+      else await adminApi.post('/products', payload);
       setShowProductModal(false); 
       fetchData();
       showToast("Guardado con éxito");
@@ -138,14 +129,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   const deleteProduct = async (id: number) => {
     if (window.confirm("¿Eliminar hardware?")) {
-      try { await api.delete(`/products/${id}`); fetchData(); } catch (e) { showToast("Error"); }
+      try { await adminApi.delete(`/products/${id}`); fetchData(); } catch (e) { showToast("Error"); }
     }
   };
 
   const saveMenuConfig = async (config: any) => {
     setMenuGroups(config);
     try {
-      await api.post('/config/menu', { configKey: "MAIN_MENU", configValue: JSON.stringify(config) });
+      await adminApi.post('/config/menu', { configKey: "MAIN_MENU", configValue: JSON.stringify(config) });
       localStorage.setItem('pcbyte_menu_config', JSON.stringify(config));
       showToast("UI Sincronizada");
     } catch (e) { showToast("Error al guardar menú"); }
@@ -187,7 +178,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       <main className="max-w-7xl mx-auto p-10">
         
         {/* --- INVENTARIO --- */}
-        {activeTab === 'products' && (
+
+        {activeTab === "products" && <ProductManager />}
+
+       {/*  {activeTab === 'products' && (
           <div className="space-y-6 animate-in fade-in">
             <div className="flex justify-between items-center">
                <h2 className="text-xl font-black italic uppercase border-l-4 border-[#97cf00] pl-3">Gestión de Inventario</h2>
@@ -232,7 +226,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
               </table>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* --- LOGÍSTICA (AHORA DENTRO DE SU activeTab CORRESPONDIENTE) --- */}
         {activeTab === 'orders' && (
@@ -426,7 +420,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <input type="text" placeholder="NUEVA..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} className="flex-1 bg-slate-50 border p-4 rounded-2xl font-black text-xs uppercase" />
                 <button onClick={async () => {
                    if (!newCategoryName.trim()) return;
-                   await api.post('/categories', { name: newCategoryName });
+                   await adminApi.post('/categories', { name: newCategoryName });
                    setNewCategoryName('');
                    fetchData();
                    showToast("Categoría Creada");
@@ -436,7 +430,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 {categories.map((c: any) => (
                   <div key={c.id} className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
                     <span className="font-black text-xs uppercase">{c.name}</span>
-                    <button onClick={() => { if(window.confirm("¿Eliminar?")) api.delete(`/categories/${c.id}`).then(()=>fetchData()) }} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                    <button onClick={() => { if(window.confirm("¿Eliminar?")) adminApi.delete(`/categories/${c.id}`).then(()=>fetchData()) }} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
                   </div>
                 ))}
               </div>
