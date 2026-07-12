@@ -1,10 +1,11 @@
 import React from "react";
+import type { Product } from "../../../types/types";
 import { Edit3, Trash2 } from "lucide-react";
 
 interface ProductTableProps {
   products: any[];
   onEdit: (product: any) => void;
-  onDelete: (productId: number) => void;
+  onDelete: (product: Product) => void;
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({
@@ -88,7 +89,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => onDelete(product.id)}
+                  onClick={() => onDelete(product)}
                   className="p-2 text-slate-400 transition-colors hover:text-red-500"
                   aria-label={`Eliminar ${product.name}`}
                 >
