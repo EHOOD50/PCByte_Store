@@ -24,7 +24,7 @@ export default function ProductPurchasePanel({
   return (
     <div className="sticky top-42 flex flex-col rounded-[2.5rem] border border-white/10 bg-[#111111]/90 p-8 shadow-2xl backdrop-blur-xl">
       <span className="text-[10px] font-black uppercase tracking-[0.35em] text-[#97cf00]">
-        {product.category?.name ?? "Producto"}
+        {product.categoryName ?? product.category?.name ?? "Producto"}
       </span>
 
       <h1 className="mt-4 text-4xl font-black uppercase leading-tight tracking-tight text-white">

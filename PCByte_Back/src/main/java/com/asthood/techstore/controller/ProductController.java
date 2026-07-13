@@ -1,6 +1,6 @@
 package com.asthood.techstore.controller;
 
-import com.asthood.techstore.dto.CartItemDTO; // ✨ Asegúrate de tener este DTO importado
+import com.asthood.techstore.dto.CartItemDTO;
 import com.asthood.techstore.dto.ProductCreateDTO;
 import com.asthood.techstore.dto.ProductDTO;
 import com.asthood.techstore.service.ProductService;
@@ -10,10 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
 @CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/products")
-//@CrossOrigin(origins = "*")
 public class ProductController {
 
     private final ProductService productService;
@@ -22,37 +22,64 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // ✨ NUEVO: Endpoint para actualizar stock tras la compra
     @PostMapping("/update-stock")
-    public ResponseEntity<Void> updateStock(@RequestBody List<CartItemDTO> items) {
+    public ResponseEntity<Void> updateStock(
+            @RequestBody List<CartItemDTO> items
+    ) {
         productService.updateStockAfterPurchase(items);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.findById(id));
+    public ResponseEntity<ProductDTO> getById(
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+                productService.findById(id)
+        );
     }
 
     @GetMapping
     public ResponseEntity<?> getAll(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "100") int size) {
-        return ResponseEntity.ok(productService.findAllFiltered(page, size, "id", "asc", null, null));
+            @RequestParam(defaultValue = "100") int size
+    ) {
+        return ResponseEntity.ok(
+                productService.findAllFiltered(
+                        page,
+                        size,
+                        "id",
+                        "asc",
+                        null,
+                        null
+                )
+        );
     }
 
     @PostMapping
-    public ResponseEntity<ProductDTO> create(@Valid @RequestBody ProductCreateDTO dto) {
-        return new ResponseEntity<>(productService.create(dto), HttpStatus.CREATED);
+    public ResponseEntity<ProductDTO> create(
+            @Valid @RequestBody ProductCreateDTO dto
+    ) {
+        return new ResponseEntity<>(
+                productService.create(dto),
+                HttpStatus.CREATED
+        );
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductDTO> update(@PathVariable Long id, @Valid @RequestBody ProductCreateDTO dto) {
-        return ResponseEntity.ok(productService.update(id, dto));
+    public ResponseEntity<ProductDTO> update(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductCreateDTO dto
+    ) {
+        return ResponseEntity.ok(
+                productService.update(id, dto)
+        );
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id
+    ) {
         productService.deleteById(id);
         return ResponseEntity.noContent().build();
     }

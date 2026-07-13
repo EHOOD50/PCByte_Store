@@ -62,11 +62,11 @@ const ProductTable: React.FC<ProductTableProps> = ({
               </td>
 
               <td className="p-6 text-[10px] font-black uppercase text-slate-500">
-                {product.category?.name ?? "Sin categoría"}
+                {product.categoryName ?? product.category?.name ?? "Sin categoría"}
               </td>
 
               <td className="p-6 text-[10px] font-black uppercase text-slate-500">
-                {product.brandName ?? "Sin marca"}
+                {product.brandName ?? product.brand?.name ?? "Sin marca"}
               </td>
 
               <td className="p-6 text-xs font-black">

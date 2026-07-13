@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
+
 import adminApi from "../../api/adminApi";
 
 import ProductToolbar from "./product/ProductToolbar";
 import ProductTable from "./product/ProductTable";
-import ProductModal from "./product/ProductModal";
+import ProductModal, {
+  type ProductFormData,
+} from "./product/ProductModal";
 import ConfirmDeleteModal from "./product/ConfirmDeleteModal";
 
 import type {
@@ -14,39 +17,38 @@ import type {
   Brand,
 } from "../../types/types";
 
-interface ProductFormData {
-  id: number | null;
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-  categoryId: number;
-  brandId: number | null;
-  imageUrl: string;
-}
-
 const ProductManager: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showProductModal, setShowProductModal] =
+    useState(false);
+
+  const [showCategoryModal, setShowCategoryModal] =
+    useState(false);
 
   const [productToDelete, setProductToDelete] =
     useState<Product | null>(null);
 
-  const [formData, setFormData] = useState<ProductFormData>({
-    id: null,
-    name: "",
-    description: "",
-    price: 0,
-    stock: 0,
-    categoryId: 0,
-    brandId: null,
-    imageUrl: "",
-  });
+  const [formData, setFormData] =
+    useState<ProductFormData>({
+      id: null,
+      internalCode: "",
+      sku: "",
+      mpn: "",
+      name: "",
+      description: "",
+      specifications: "",
+      warranty: "",
+      price: 0,
+      stock: 0,
+      active: true,
+      categoryId: 0,
+      brandId: null,
+      imageUrl: "",
+    });
 
   const fetchInventoryData = async () => {
     setLoading(true);
@@ -70,27 +72,30 @@ const ProductManager: React.FC = () => {
 
       const categoriesContent =
         categoriesResponse.data?._embedded?.categories ??
+        categoriesResponse.data?.content ??
         categoriesResponse.data ??
         [];
 
       const brandsContent =
         brandsResponse.data?._embedded?.brands ??
+        brandsResponse.data?.content ??
         brandsResponse.data ??
         [];
 
-      const cleanProducts: Product[] = Array.isArray(productsContent)
-        ? productsContent
-        : [];
+      const cleanProducts: Product[] =
+        Array.isArray(productsContent)
+          ? productsContent
+          : [];
 
-      const cleanCategories: Category[] = Array.isArray(
-        categoriesContent
-      )
-        ? categoriesContent
-        : [];
+      const cleanCategories: Category[] =
+        Array.isArray(categoriesContent)
+          ? categoriesContent
+          : [];
 
-      const cleanBrands: Brand[] = Array.isArray(brandsContent)
-        ? brandsContent
-        : [];
+      const cleanBrands: Brand[] =
+        Array.isArray(brandsContent)
+          ? brandsContent
+          : [];
 
       setProducts(cleanProducts);
       setCategories(cleanCategories);
@@ -112,6 +117,10 @@ const ProductManager: React.FC = () => {
         "Error al cargar el inventario:",
         error
       );
+
+      toast.error(
+        "No se pudo cargar el inventario."
+      );
     } finally {
       setLoading(false);
     }
@@ -124,18 +133,28 @@ const ProductManager: React.FC = () => {
   const editProduct = (product: Product) => {
     setFormData({
       id: product.id,
+      internalCode: product.internalCode ?? "",
+      sku: product.sku ?? "",
+      mpn: product.mpn ?? "",
       name: product.name,
       description: product.description ?? "",
+      specifications:
+        product.specifications ?? "",
+      warranty: product.warranty ?? "",
       price: Number(product.price),
       stock: Number(product.stock),
+      active: product.active ?? true,
+
       categoryId:
-        product.category?.id ??
-        product.categoryId ??
-        0,
-      brandId:
-        product.brand?.id ??
-        product.brandId ??
-        null,
+  product.categoryId ??
+  product.category?.id ??
+  0,
+
+brandId:
+  product.brandId ??
+  product.brand?.id ??
+  null,
+
       imageUrl: product.imageUrl ?? "",
     });
 
@@ -145,10 +164,16 @@ const ProductManager: React.FC = () => {
   const openNewProductModal = () => {
     setFormData({
       id: null,
+      internalCode: "",
+      sku: "",
+      mpn: "",
       name: "",
       description: "",
+      specifications: "",
+      warranty: "",
       price: 0,
       stock: 0,
+      active: true,
       categoryId: categories[0]?.id ?? 0,
       brandId: brands[0]?.id ?? null,
       imageUrl: "",
@@ -157,22 +182,51 @@ const ProductManager: React.FC = () => {
     setShowProductModal(true);
   };
 
+  const closeProductModal = () => {
+    setShowProductModal(false);
+  };
+
   const saveProduct = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
+    if (formData.categoryId === 0) {
+      toast.error(
+        "Debes seleccionar una categoría."
+      );
+      return;
+    }
+
     const productPayload = {
+      sku: formData.sku.trim() || null,
+      mpn: formData.mpn.trim() || null,
+
       name: formData.name.trim(),
-      description: formData.description.trim(),
+      description:
+        formData.description.trim() || null,
+
+      specifications:
+        formData.specifications.trim() || null,
+
+      warranty:
+        formData.warranty.trim() || null,
+
       price: Number(formData.price),
       stock: Number(formData.stock),
-      categoryId: Number(formData.categoryId),
+      active: formData.active,
+
+      categoryId: Number(
+        formData.categoryId
+      ),
+
       brandId:
         formData.brandId !== null
           ? Number(formData.brandId)
           : null,
-      imageUrl: formData.imageUrl.trim(),
+
+      imageUrl:
+        formData.imageUrl.trim() || null,
     };
 
     try {
@@ -189,10 +243,10 @@ const ProductManager: React.FC = () => {
       }
 
       toast.success(
-  formData.id !== null
-    ? "Producto actualizado correctamente."
-    : "Producto creado correctamente."
-);
+        formData.id !== null
+          ? "Producto actualizado correctamente."
+          : "Producto creado correctamente."
+      );
 
       setShowProductModal(false);
       await fetchInventoryData();
@@ -202,15 +256,24 @@ const ProductManager: React.FC = () => {
         error
       );
 
+      if (axios.isAxiosError(error)) {
+        console.error(
+          "Respuesta del backend:",
+          error.response?.data
+        );
+      }
+
       toast.error(
-  formData.id !== null
-    ? "No se pudo actualizar el producto."
-    : "No se pudo crear el producto."
-);
+        formData.id !== null
+          ? "No se pudo actualizar el producto."
+          : "No se pudo crear el producto."
+      );
     }
   };
 
-  const requestDeleteProduct = (product: Product) => {
+  const requestDeleteProduct = (
+    product: Product
+  ) => {
     setProductToDelete(product);
   };
 
@@ -221,7 +284,11 @@ const ProductManager: React.FC = () => {
       await adminApi.delete(
         `/products/${productToDelete.id}`
       );
-      toast.success("Producto eliminado correctamente.");
+
+      toast.success(
+        "Producto eliminado correctamente."
+      );
+
       setProductToDelete(null);
       await fetchInventoryData();
     } catch (error: unknown) {
@@ -231,7 +298,8 @@ const ProductManager: React.FC = () => {
       );
 
       if (axios.isAxiosError(error)) {
-        const responseData = error.response?.data;
+        const responseData =
+          error.response?.data;
 
         const backendMessage = String(
           responseData?.message ??
@@ -241,24 +309,33 @@ const ProductManager: React.FC = () => {
         ).toLowerCase();
 
         const isRelatedToOrders =
-          backendMessage.includes("order_items") ||
-          backendMessage.includes("llave foránea") ||
-          backendMessage.includes("foreign key") ||
+          backendMessage.includes(
+            "order_items"
+          ) ||
+          backendMessage.includes(
+            "llave foránea"
+          ) ||
+          backendMessage.includes(
+            "foreign key"
+          ) ||
           backendMessage.includes(
             "constraint"
           );
 
         if (isRelatedToOrders) {
           toast.error(
-  "Este producto está asociado a uno o más pedidos y no puede eliminarse."
-);
+            "Este producto está asociado a uno o más pedidos y no puede eliminarse."
+          );
 
           setProductToDelete(null);
           return;
         }
       }
 
-      toast.error("No se pudo eliminar el producto.");
+      toast.error(
+        "No se pudo eliminar el producto."
+      );
+
       setProductToDelete(null);
     }
   };
@@ -293,9 +370,7 @@ const ProductManager: React.FC = () => {
         formData={formData}
         categories={categories}
         brands={brands}
-        onClose={() =>
-          setShowProductModal(false)
-        }
+        onClose={closeProductModal}
         onChange={setFormData}
         onSubmit={saveProduct}
       />

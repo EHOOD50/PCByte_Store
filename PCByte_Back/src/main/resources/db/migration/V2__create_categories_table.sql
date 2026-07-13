@@ -1,20 +1,39 @@
--- 1. Crear la tabla de categorías
-CREATE TABLE categories (
+-- Crear tabla de categorías solamente si no existe
+CREATE TABLE IF NOT EXISTS categories (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE
 );
 
--- 2. Insertar categorías iniciales para que el sistema no esté vacío
-INSERT INTO categories (name) VALUES ('ALMACENAMIENTO'), ('PERIFERICOS'), ('HARDWARE'), ('MONITORES'), ('LAPTOPS');
+-- Insertar categorías iniciales evitando duplicados
+INSERT INTO categories (name)
+VALUES
+    ('ALMACENAMIENTO'),
+    ('PERIFERICOS'),
+    ('HARDWARE'),
+    ('MONITORES'),
+    ('LAPTOPS')
+ON CONFLICT (name) DO NOTHING;
 
--- 3. Modificar la tabla de productos para que use la relación
--- Primero borramos la columna vieja de texto
-ALTER TABLE products DROP COLUMN category;
-
--- Luego añadimos la columna de llave foránea
-ALTER TABLE products ADD COLUMN category_id BIGINT;
-
--- Finalmente añadimos la restricción de llave foránea (FK)
+-- Eliminar la antigua categoría almacenada como texto, si todavía existe
 ALTER TABLE products
-ADD CONSTRAINT fk_product_category
-FOREIGN KEY (category_id) REFERENCES categories (id);
+DROP COLUMN IF EXISTS category;
+
+-- Agregar category_id si todavía no existe
+ALTER TABLE products
+ADD COLUMN IF NOT EXISTS category_id BIGINT;
+
+-- Agregar la llave foránea solamente si no existe con este nombre
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_product_category'
+    ) THEN
+        ALTER TABLE products
+        ADD CONSTRAINT fk_product_category
+        FOREIGN KEY (category_id)
+        REFERENCES categories(id);
+    END IF;
+END
+$$;

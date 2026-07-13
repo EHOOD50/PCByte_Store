@@ -42,7 +42,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, addToCart }) => {
 
       <div className="flex flex-1 flex-col p-4">
         <span className="mb-2 text-[8px] font-black uppercase tracking-[0.2em] text-[#0066FF]">
-          {product.category?.name ?? "Producto"}
+          {product.category?.name ?? product.categoryName ?? "Producto"}
         </span>
 
         <h3 className="min-h-[2.5rem] text-sm font-black leading-tight text-slate-900 line-clamp-2">

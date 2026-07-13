@@ -1,32 +1,57 @@
-import React from 'react';
-import { useMenu } from '../../hooks/useMenu';
-import { ChevronRight, LayoutGrid, Activity, ShieldCheck } from 'lucide-react';
-
-
+import React from "react";
+import { useMenu } from "../../hooks/useMenu";
+import {
+  ChevronRight,
+  LayoutGrid,
+  ShieldCheck,
+} from "lucide-react";
 
 interface SidebarProps {
-  activeCategory: string; // Añadido para resaltar el botón activo
-  onSelectCategory: (categoryName: string) => void; // Nombre corregido para App.tsx
+  activeCategory: string;
+  onSelectCategory: (categoryName: string) => void;
+  variant?: "desktop" | "mobile";
 }
 
-
-
-const Sidebar: React.FC<SidebarProps> = ({ activeCategory, onSelectCategory }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  activeCategory,
+  onSelectCategory,
+  variant = "desktop",
+}) => {
   const { menuGroups, loading } = useMenu();
 
-  const handleSelect = (cat: string) => {
-    onSelectCategory(cat);
+  const handleSelect = (category: string) => {
+    onSelectCategory(category);
   };
+
+  const asideClassName =
+    variant === "desktop"
+      ? "hidden h-[calc(100vh-90px)] w-72 flex-col gap-6 lg:sticky lg:top-0 lg:flex"
+      : "flex h-[calc(100vh-85px)] w-full flex-col gap-6";
+
+  const containerClassName = `
+    flex h-full flex-col overflow-y-auto
+    border border-white/5
+    bg-[#111111]/80
+    shadow-2xl
+    backdrop-blur-xl
+    custom-scrollbar
+    ${
+      variant === "desktop"
+        ? "rounded-[2.5rem] p-8"
+        : "rounded-[2rem] p-5"
+    }
+  `;
 
   if (loading) {
     return (
-      <aside className="w-72 hidden lg:flex flex-col gap-6">
-        <div className="bg-[#111111]/80 backdrop-blur-xl rounded-[2.5rem] p-6 border border-white/5 shadow-2xl flex flex-col h-full overflow-y-auto custom-scrollbar">
-          <div className="h-4 w-24 bg-white/10 rounded-full"></div>
+      <aside className={asideClassName}>
+        <div className={containerClassName}>
+          <div className="mb-6 h-4 w-24 rounded-full bg-white/10" />
+
           <div className="space-y-4">
-            <div className="h-12 bg-white/5 rounded-2xl"></div>
-            <div className="h-12 bg-white/5 rounded-2xl"></div>
-            <div className="h-12 bg-white/5 rounded-2xl"></div>
+            <div className="h-12 rounded-2xl bg-white/5" />
+            <div className="h-12 rounded-2xl bg-white/5" />
+            <div className="h-12 rounded-2xl bg-white/5" />
           </div>
         </div>
       </aside>
@@ -34,63 +59,87 @@ const Sidebar: React.FC<SidebarProps> = ({ activeCategory, onSelectCategory }) =
   }
 
   return (
-    <aside className="w-72 hidden lg:flex flex-col gap-6 sticky top-0 h-[calc(100vh-90px)]">
-      <div className="bg-[#111111]/80 backdrop-blur-xl rounded-[2.5rem] p-8 border border-white/5 shadow-2xl flex flex-col h-full overflow-y-auto custom-scrollbar">
-        
-        {/* HEADER DEL SIDEBAR 
-        <div className="flex items-center gap-3 mb-10 shrink-0">
-          <div className="p-2 bg-[#97cf00]/10 rounded-lg">
-            <Activity size={16} className="text-[#97cf00]" />
-          </div>
-          <div>
-            <h2 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] leading-none">
-              Control_Panel
-            </h2>
-            <span className="text-[8px] font-mono text-[#97cf00]/60 uppercase">Sincronizado_DB</span>
-          </div>
-        </div>*/}
-
-        {/* NAVEGACIÓN */}
+    <aside className={asideClassName}>
+      <div className={containerClassName}>
         <nav className="flex flex-col gap-8">
-          {/* BOTÓN "TODOS" */}
           <button
-            onClick={() => handleSelect('TODOS')}
-            className={`w-full group flex items-center gap-4 p-4 rounded-2xl transition-all duration-500
-              ${activeCategory === 'TODOS' 
-                ? 'bg-[#0066FF] text-white shadow-[0_15px_30px_rgba(0,102,255,0.25)]' 
-                : 'bg-white/5 text-slate-500 hover:text-white hover:bg-white/10'}`}
+            type="button"
+            onClick={() => handleSelect("TODOS")}
+            className={`group flex w-full items-center gap-4 rounded-2xl p-4 transition-all duration-500 ${
+              activeCategory === "TODOS"
+                ? "bg-[#0066FF] text-white shadow-[0_15px_30px_rgba(0,102,255,0.25)]"
+                : "bg-white/5 text-slate-500 hover:bg-white/10 hover:text-white"
+            }`}
           >
-            <LayoutGrid size={18} className={`${activeCategory === 'TODOS' ? 'scale-110' : 'group-hover:rotate-12'}`} />
-            <span className="text-[11px] font-black uppercase tracking-widest flex-1 text-left">Mostrar Todo</span>
+            <LayoutGrid
+              size={18}
+              className={
+                activeCategory === "TODOS"
+                  ? "scale-110"
+                  : "group-hover:rotate-12"
+              }
+            />
+
+            <span className="flex-1 text-left text-[11px] font-black uppercase tracking-widest">
+              Mostrar todo
+            </span>
           </button>
 
-          {/* GRUPOS DINÁMICOS */}
           {menuGroups.map((group) => (
-            <div key={group.id} className="flex flex-col gap-4">
+            <div
+              key={group.id}
+              className="flex flex-col gap-4"
+            >
               <div className="flex items-center gap-2 px-1">
-                <div className="w-1 h-3 rounded-full" style={{ backgroundColor: group.color }} />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 italic" style={{ color: group.color }}>
+                <div
+                  className="h-3 w-1 rounded-full"
+                  style={{
+                    backgroundColor: group.color,
+                  }}
+                />
+
+                <h3
+                  className="text-[10px] font-black uppercase italic tracking-[0.2em] opacity-80"
+                  style={{
+                    color: group.color,
+                  }}
+                >
                   {group.title}
                 </h3>
               </div>
 
               <div className="flex flex-col gap-1.5 pl-1">
-                {group.cats?.map((cat) => (
+                {group.cats?.map((category) => (
                   <button
-                    key={cat}
-                    onClick={() => handleSelect(cat)}
-                    className={`group flex justify-between items-center px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all duration-300 ${
-                      activeCategory === cat 
-                      ? "bg-white/10 text-white translate-x-2 border-l-2" 
-                      : "text-slate-500 hover:text-white hover:bg-white/5"
+                    key={category}
+                    type="button"
+                    onClick={() =>
+                      handleSelect(category)
+                    }
+                    className={`group flex items-center justify-between rounded-xl px-4 py-3 text-[10px] font-black uppercase transition-all duration-300 ${
+                      activeCategory === category
+                        ? "translate-x-2 border-l-2 bg-white/10 text-white"
+                        : "text-slate-500 hover:bg-white/5 hover:text-white"
                     }`}
-                    style={{ borderLeftColor: activeCategory === cat ? group.color : 'transparent' }}
+                    style={{
+                      borderLeftColor:
+                        activeCategory === category
+                          ? group.color
+                          : "transparent",
+                    }}
                   >
-                    {cat}
-                    <ChevronRight 
-                      size={14} 
-                      className={`transition-all duration-500 ${activeCategory === cat ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"}`} 
-                      style={{ color: group.color }}
+                    <span>{category}</span>
+
+                    <ChevronRight
+                      size={14}
+                      className={`transition-all duration-500 ${
+                        activeCategory === category
+                          ? "translate-x-0 opacity-100"
+                          : "-translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
+                      }`}
+                      style={{
+                        color: group.color,
+                      }}
                     />
                   </button>
                 ))}
@@ -99,11 +148,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeCategory, onSelectCategory }) =
           ))}
         </nav>
 
-        {/* FOOTER STATUS */}
-        <div className="mt-auto pt-10 shrink-0">
-          <div className="p-4 rounded-[2rem] bg-white/5 border border-white/5 flex flex-col items-center">
-            <ShieldCheck size={20} className="text-[#97cf00] mb-2 opacity-50" />
-            <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter text-center">Core_Engine_v1.0</p>
+        <div className="mt-auto shrink-0 pt-10">
+          <div className="flex flex-col items-center rounded-[2rem] border border-white/5 bg-white/5 p-4">
+            <ShieldCheck
+              size={20}
+              className="mb-2 text-[#97cf00] opacity-50"
+            />
+
+            <p className="text-center text-[8px] font-black uppercase tracking-tighter text-slate-500">
+              Core_Engine_v1.0
+            </p>
           </div>
         </div>
       </div>

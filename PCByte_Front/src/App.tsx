@@ -110,7 +110,12 @@ function App() {
     return products
       .filter(p => {
         const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchCategory = filter === "TODOS" || p.category?.name?.toUpperCase() === filter.toUpperCase();
+        const productCategoryName =
+  p.category?.name ?? p.categoryName ?? "";
+
+const matchCategory =
+  filter === "TODOS" ||
+  productCategoryName.toUpperCase() === filter.toUpperCase();
         return matchSearch && matchCategory;
       })
       .sort((a, b) => {
