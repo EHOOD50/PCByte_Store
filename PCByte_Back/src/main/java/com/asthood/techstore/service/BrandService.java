@@ -15,7 +15,9 @@ public class BrandService {
 
     private final BrandRepository brandRepository;
 
-    public BrandService(BrandRepository brandRepository) {
+    public BrandService(
+            BrandRepository brandRepository
+    ) {
         this.brandRepository = brandRepository;
     }
 
@@ -25,7 +27,6 @@ public class BrandService {
 
     @Transactional(readOnly = true)
     public List<BrandDTO> findAll() {
-
         return brandRepository.findAll()
                 .stream()
                 .map(BrandMapper::toDTO)
@@ -38,10 +39,12 @@ public class BrandService {
 
     @Transactional(readOnly = true)
     public BrandDTO findById(Long id) {
-
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() ->
-                        new EntityNotFoundException("Marca no encontrada"));
+                        new EntityNotFoundException(
+                                "Marca no encontrada con ID: " + id
+                        )
+                );
 
         return BrandMapper.toDTO(brand);
     }
@@ -52,12 +55,29 @@ public class BrandService {
 
     @Transactional
     public BrandDTO create(BrandDTO dto) {
+        String brandName =
+                normalizeName(dto.getName());
 
-        if (brandRepository.existsByNameIgnoreCase(dto.getName())) {
-            throw new IllegalArgumentException("La marca ya existe.");
+        if (
+                brandRepository.existsByNameIgnoreCase(
+                        brandName
+                )
+        ) {
+            throw new IllegalArgumentException(
+                    "La marca ya existe."
+            );
         }
 
-        Brand brand = BrandMapper.toEntity(dto);
+        Brand brand =
+                BrandMapper.toEntity(dto);
+
+        brand.setName(brandName);
+
+        brand.setActive(
+                dto.getActive() != null
+                        ? dto.getActive()
+                        : true
+        );
 
         return BrandMapper.toDTO(
                 brandRepository.save(brand)
@@ -69,16 +89,46 @@ public class BrandService {
     // ============================
 
     @Transactional
-    public BrandDTO update(Long id, BrandDTO dto) {
-
+    public BrandDTO update(
+            Long id,
+            BrandDTO dto
+    ) {
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() ->
-                        new EntityNotFoundException("Marca no encontrada"));
+                        new EntityNotFoundException(
+                                "Marca no encontrada con ID: " + id
+                        )
+                );
 
-        brand.setName(dto.getName());
-        brand.setLogoUrl(dto.getLogoUrl());
-        brand.setWebsite(dto.getWebsite());
-        brand.setActive(dto.getActive());
+        String brandName =
+                normalizeName(dto.getName());
+
+        boolean nameChanged =
+                !brand.getName()
+                        .equalsIgnoreCase(brandName);
+
+        if (
+                nameChanged &&
+                        brandRepository.existsByNameIgnoreCase(
+                                brandName
+                        )
+        ) {
+            throw new IllegalArgumentException(
+                    "La marca ya existe."
+            );
+        }
+
+        brand.setName(brandName);
+        brand.setLogoUrl(
+                normalizeOptionalText(dto.getLogoUrl())
+        );
+        brand.setWebsite(
+                normalizeOptionalText(dto.getWebsite())
+        );
+
+        if (dto.getActive() != null) {
+            brand.setActive(dto.getActive());
+        }
 
         return BrandMapper.toDTO(
                 brandRepository.save(brand)
@@ -91,11 +141,38 @@ public class BrandService {
 
     @Transactional
     public void delete(Long id) {
-
         if (!brandRepository.existsById(id)) {
-            throw new EntityNotFoundException("Marca no encontrada.");
+            throw new EntityNotFoundException(
+                    "Marca no encontrada con ID: " + id
+            );
         }
 
         brandRepository.deleteById(id);
+    }
+
+    // ============================
+    // MÉTODOS AUXILIARES
+    // ============================
+
+    private String normalizeName(String name) {
+        if (name == null) {
+            return "";
+        }
+
+        return name
+                .trim()
+                .replaceAll("\\s+", " ");
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+
+        return normalized.isEmpty()
+                ? null
+                : normalized;
     }
 }

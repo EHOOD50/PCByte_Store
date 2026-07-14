@@ -17,16 +17,19 @@ import type {
   Brand,
 } from "../../types/types";
 
-const ProductManager: React.FC = () => {
+interface ProductManagerProps {
+  onManageCategories: () => void;
+}
+
+const ProductManager: React.FC<ProductManagerProps> = ({
+  onManageCategories,
+}) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showProductModal, setShowProductModal] =
-    useState(false);
-
-  const [showCategoryModal, setShowCategoryModal] =
     useState(false);
 
   const [productToDelete, setProductToDelete] =
@@ -146,14 +149,14 @@ const ProductManager: React.FC = () => {
       active: product.active ?? true,
 
       categoryId:
-  product.categoryId ??
-  product.category?.id ??
-  0,
+        product.categoryId ??
+        product.category?.id ??
+        0,
 
-brandId:
-  product.brandId ??
-  product.brand?.id ??
-  null,
+      brandId:
+        product.brandId ??
+        product.brand?.id ??
+        null,
 
       imageUrl: product.imageUrl ?? "",
     });
@@ -174,8 +177,10 @@ brandId:
       price: 0,
       stock: 0,
       active: true,
-      categoryId: categories[0]?.id ?? 0,
-      brandId: brands[0]?.id ?? null,
+      categoryId:
+        categories[0]?.id ?? 0,
+      brandId:
+        brands[0]?.id ?? null,
       imageUrl: "",
     });
 
@@ -203,6 +208,7 @@ brandId:
       mpn: formData.mpn.trim() || null,
 
       name: formData.name.trim(),
+
       description:
         formData.description.trim() || null,
 
@@ -248,7 +254,7 @@ brandId:
           : "Producto creado correctamente."
       );
 
-      setShowProductModal(false);
+      closeProductModal();
       await fetchInventoryData();
     } catch (error) {
       console.error(
@@ -309,18 +315,10 @@ brandId:
         ).toLowerCase();
 
         const isRelatedToOrders =
-          backendMessage.includes(
-            "order_items"
-          ) ||
-          backendMessage.includes(
-            "llave foránea"
-          ) ||
-          backendMessage.includes(
-            "foreign key"
-          ) ||
-          backendMessage.includes(
-            "constraint"
-          );
+          backendMessage.includes("order_items") ||
+          backendMessage.includes("llave foránea") ||
+          backendMessage.includes("foreign key") ||
+          backendMessage.includes("constraint");
 
         if (isRelatedToOrders) {
           toast.error(
@@ -354,8 +352,8 @@ brandId:
     <div className="space-y-6">
       <ProductToolbar
         onNewProduct={openNewProductModal}
-        onManageCategories={() =>
-          setShowCategoryModal(true)
+        onManageCategories={
+          onManageCategories
         }
       />
 
@@ -376,7 +374,9 @@ brandId:
       />
 
       <ConfirmDeleteModal
-        isOpen={productToDelete !== null}
+        isOpen={
+          productToDelete !== null
+        }
         title="Eliminar producto"
         message={
           productToDelete
@@ -386,14 +386,10 @@ brandId:
         onCancel={() =>
           setProductToDelete(null)
         }
-        onConfirm={confirmDeleteProduct}
+        onConfirm={
+          confirmDeleteProduct
+        }
       />
-
-      {showCategoryModal && (
-        <div className="hidden">
-          Modal de categorías pendiente.
-        </div>
-      )}
     </div>
   );
 };

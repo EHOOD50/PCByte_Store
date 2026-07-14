@@ -8,6 +8,9 @@ export interface Category {
 export interface Brand {
   id?: number;
   name: string;
+  logoUrl?: string;
+  website?: string;
+  active?: boolean;
 }
 
 export interface Product {

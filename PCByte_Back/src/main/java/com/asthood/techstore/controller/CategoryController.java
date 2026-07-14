@@ -1,9 +1,8 @@
 package com.asthood.techstore.controller;
 
-import com.asthood.techstore.domain.entity.Category;
-import com.asthood.techstore.repository.CategoryRepository;
+import com.asthood.techstore.dto.CategoryDTO;
 import com.asthood.techstore.service.CategoryService;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,28 +11,63 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/categories")
-@CrossOrigin(origins = "*") // Para que React pueda conectarse
+@CrossOrigin(origins = "*")
 public class CategoryController {
 
-    @Autowired
-    private CategoryService categoryService;
+    private final CategoryService categoryService;
 
-    // ESTE ES EL QUE TE FALTA:
-    @PostMapping
-    public ResponseEntity<Category> createCategory(@RequestBody Category category) {
-        // Aquí llamamos al método .save() que acabamos de crear arriba
-        Category savedCategory = categoryService.save(category);
-        return new ResponseEntity<>(savedCategory, HttpStatus.CREATED);
+    public CategoryController(
+            CategoryService categoryService
+    ) {
+        this.categoryService = categoryService;
     }
 
-    // El que ya tienes (probablemente)
+    // --- LISTAR TODAS ---
     @GetMapping
-    public List<Category> getAllCategories() {
-        return categoryService.findAll();
+    public ResponseEntity<List<CategoryDTO>> getAll() {
+        return ResponseEntity.ok(
+                categoryService.findAll()
+        );
     }
+
+    // --- BUSCAR POR ID ---
+    @GetMapping("/{id}")
+    public ResponseEntity<CategoryDTO> getById(
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+                categoryService.findById(id)
+        );
+    }
+
+    // --- CREAR ---
+    @PostMapping
+    public ResponseEntity<CategoryDTO> create(
+            @Valid @RequestBody CategoryDTO dto
+    ) {
+        return new ResponseEntity<>(
+                categoryService.create(dto),
+                HttpStatus.CREATED
+        );
+    }
+
+    // --- ACTUALIZAR ---
+    @PutMapping("/{id}")
+    public ResponseEntity<CategoryDTO> update(
+            @PathVariable Long id,
+            @Valid @RequestBody CategoryDTO dto
+    ) {
+        return ResponseEntity.ok(
+                categoryService.update(id, dto)
+        );
+    }
+
+    // --- ELIMINAR ---
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
-        categoryService.deleteById(id); // Asegúrate de que tu service tenga deleteById
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id
+    ) {
+        categoryService.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 }
