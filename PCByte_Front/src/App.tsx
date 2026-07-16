@@ -57,6 +57,7 @@ function App() {
   "/",
   "/checkout",
   "/checkout-selection",
+  "/success",
 ];
   const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
@@ -231,7 +232,14 @@ const handleSearchChange = (value: string) => {
             } 
           />
 
-          <Route path="/success" element={<SuccessPage />} />
+          <Route
+  path="/success"
+  element={
+    <SuccessPage
+      clearCart={clearCart}
+    />
+  }
+/>
         </Routes>
       </div>
 

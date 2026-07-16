@@ -22,13 +22,12 @@ spring:
 
 mercadopago:
   access:
-    token: ${MP_ACCESS_TOKEN:APP_USR-5611136922954501-020919-cd3df22478cbd7f15431602045cdc2ca-3193516088}
+    token: ${MP_ACCESS_TOKEN}
 
 # 🚩 CORRECCIÓN APLICADA: Un solo 'app' y variables alineadas
 app:
   base-url: https://unrarefied-unpervasive-pandora.ngrok-free.dev
-  frontend-url: https://unrarefied-unpervasive-pandora.ngrok-free.dev
-
+  frontend-url: http://192.168.100.226:5173
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
   api-key: ${CLOUDINARY_API_KEY}

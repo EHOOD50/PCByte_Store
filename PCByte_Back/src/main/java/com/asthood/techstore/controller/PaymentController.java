@@ -393,6 +393,9 @@ public class PaymentController {
                 );
             }
 
+            requestedItem.setName(product.getName());
+            requestedItem.setPrice(unitPrice);
+
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
                     .product(product)

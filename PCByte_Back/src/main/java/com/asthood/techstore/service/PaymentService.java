@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
+import com.mercadopago.exceptions.MPApiException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -96,9 +96,31 @@ public class PaymentService {
 
             return preference.getInitPoint();
 
-        } catch (Exception exception) {
+
+
+
+
+        } catch (MPApiException exception) {
+
             log.error(
-                    "Error al crear la preferencia de Mercado Pago",
+                    "Error HTTP de Mercado Pago: {}",
+                    exception.getApiResponse().getStatusCode()
+            );
+
+            log.error(
+                    "Respuesta de Mercado Pago: {}",
+                    exception.getApiResponse().getContent()
+            );
+
+            throw new IllegalStateException(
+                    "Mercado Pago rechazó la creación de la preferencia.",
+                    exception
+            );
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Error general al crear la preferencia de pago",
                     exception
             );
 

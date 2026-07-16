@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Truck, CreditCard, ShieldCheck, ChevronDown, MapPin, Info } from 'lucide-react';
-import axios from 'axios';
+import api from "../api/axios";
 
 // 1. INTERFAZ CORREGIDA (Incluye clearCart para evitar el error de TS)
 interface CheckoutPageProps {
@@ -51,26 +51,25 @@ export const CheckoutPage = ({ cart, total, onBack, clearCart }: CheckoutPagePro
   const handlePayment = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.post("https://unrarefied-unpervasive-pandora.ngrok-free.dev/api/payments/create_preference", {
+      const response = await api.post(
+    "/payments/create_preference", {
         payer: formData,
-        items: cart.map(item => ({ 
-          productId: item.product.id, 
-          name: item.product.name, 
-          price: item.product.price, 
-          quantity: item.quantity 
-        })),
+        items: cart.map(item => ({
+    productId: item.product.id,
+    name: item.product.name,
+    quantity: item.quantity
+})),
         total: total
       });
 
       const targetUrl = response.data.checkoutUrl;
 
       if (targetUrl) {
-        // Vaciamos el carrito justo antes de redirigir
-        clearCart();
-        window.location.href = targetUrl;
-      } else {
+    window.location.href = targetUrl;
+      } 
+      else {
         alert("Error: El servidor no devolvió 'checkoutUrl'.");
-      }
+            }
     } catch (error: any) {
       alert(`Error de Conexión: ${error.message}`);
     } finally {
