@@ -1,5 +1,7 @@
 package com.asthood.techstore.service;
 
+import com.asthood.techstore.dto.AddressDTO;
+import com.asthood.techstore.mapper.AddressMapper;
 import com.asthood.techstore.model.Address;
 import com.asthood.techstore.model.User;
 import com.asthood.techstore.repository.AddressRepository;
@@ -18,20 +20,128 @@ public class AddressService {
     private final UserRepository userRepository;
 
     @Transactional
-    public Address addAddressToUser(Long userId, Address address) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+    public AddressDTO addAddressToUser(
+            Long userId,
+            AddressDTO request
+    ) {
+        User user = userRepository
+                .findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Usuario no encontrado."
+                        )
+                );
 
-        // Si es la primera dirección, la marcamos como predeterminada automáticamente
-        if (user.getAddresses().isEmpty()) {
-            address.setDefault(true);
+        if (user.getAddresses() == null) {
+            throw new IllegalStateException(
+                    "La colección de direcciones del usuario no está inicializada."
+            );
         }
 
-        address.setUser(user);
-        return addressRepository.save(address);
+        boolean firstAddress =
+                user.getAddresses().isEmpty();
+
+        if (request.isDefaultAddress()) {
+            user.getAddresses().forEach(
+                    address ->
+                            address.setDefault(false)
+            );
+        }
+
+        Address address = Address.builder()
+                .label(normalizeLabel(request.getLabel()))
+                .street(normalizeRequired(
+                        request.getStreet(),
+                        "La calle es obligatoria."
+                ))
+                .number(normalizeRequired(
+                        request.getNumber(),
+                        "El número es obligatorio."
+                ))
+                .apartment(normalizeNullable(
+                        request.getApartment()
+                ))
+                .city(normalizeRequired(
+                        request.getCity(),
+                        "La comuna es obligatoria."
+                ))
+                .region(normalizeRequired(
+                        request.getRegion(),
+                        "La región es obligatoria."
+                ))
+                .extraInfo(normalizeNullable(
+                        request.getExtraInfo()
+                ))
+                .isDefault(
+                        firstAddress ||
+                                request.isDefaultAddress()
+                )
+                .user(user)
+                .build();
+
+        Address savedAddress =
+                addressRepository.save(address);
+
+        return AddressMapper.toDTO(
+                savedAddress
+        );
     }
 
-    public List<Address> getUserAddresses(Long userId) {
-        return addressRepository.findByUserId(userId);
+    @Transactional(readOnly = true)
+    public List<AddressDTO> getUserAddresses(
+            Long userId
+    ) {
+        if (!userRepository.existsById(userId)) {
+            throw new IllegalArgumentException(
+                    "Usuario no encontrado."
+            );
+        }
+
+        return addressRepository
+                .findByUserIdOrderByIsDefaultDescIdAsc(userId)
+                .stream()
+                .map(AddressMapper::toDTO)
+                .toList();
+    }
+
+    private String normalizeLabel(
+            String value
+    ) {
+        if (value == null || value.isBlank()) {
+            return "Principal";
+        }
+
+        return normalizeText(value);
+    }
+
+    private String normalizeRequired(
+            String value,
+            String message
+    ) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(
+                    message
+            );
+        }
+
+        return normalizeText(value);
+    }
+
+    private String normalizeNullable(
+            String value
+    ) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return normalizeText(value);
+    }
+
+    private String normalizeText(
+            String value
+    ) {
+        return value
+                .trim()
+                .replaceAll("\\s+", " ");
     }
 }

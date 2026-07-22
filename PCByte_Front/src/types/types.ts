@@ -13,6 +13,27 @@ export interface Brand {
   active?: boolean;
 }
 
+export interface Address {
+
+  id: number;
+
+  label: string;
+
+  street: string;
+
+  number: string;
+
+  apartment?: string | null;
+
+  city: string;
+
+  region: string;
+
+  extraInfo?: string | null;
+
+  defaultAddress: boolean;
+}
+
 export interface Product {
   id: number;
 

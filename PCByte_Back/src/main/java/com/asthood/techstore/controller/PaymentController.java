@@ -1,12 +1,12 @@
 package com.asthood.techstore.controller;
 
+import com.asthood.techstore.domain.entity.Product;
 import com.asthood.techstore.dto.CartItemDTO;
 import com.asthood.techstore.dto.OrderRequestDTO;
 import com.asthood.techstore.dto.PaymentResponseDTO;
 import com.asthood.techstore.model.Order;
 import com.asthood.techstore.model.OrderItem;
 import com.asthood.techstore.model.OrderStatus;
-import com.asthood.techstore.domain.entity.Product;
 import com.asthood.techstore.model.User;
 import com.asthood.techstore.model.UserStatus;
 import com.asthood.techstore.repository.OrderRepository;
@@ -144,11 +144,11 @@ public class PaymentController {
     }
 
     // =========================================================
-    // RETORNO DESDE MERCADO PAGO
+    // RETORNO APROBADO DESDE MERCADO PAGO
     // =========================================================
 
     @GetMapping("/success")
-    public RedirectView redirectAfterPayment(
+    public RedirectView redirectAfterPaymentSuccess(
             @RequestParam(
                     name = "payment_id",
                     required = false
@@ -169,24 +169,120 @@ public class PaymentController {
                 .path("/success")
                 .queryParam(
                         "payment_id",
-                        paymentId != null ? paymentId : ""
+                        valueOrEmpty(paymentId)
                 )
                 .queryParam(
                         "status",
-                        status != null ? status : ""
+                        valueOrEmpty(status)
                 )
                 .queryParam(
                         "external_reference",
-                        externalReference != null
-                                ? externalReference
-                                : ""
+                        valueOrEmpty(externalReference)
                 )
                 .build()
                 .encode()
                 .toUriString();
 
         log.info(
-                "Redirigiendo retorno de Mercado Pago hacia: {}",
+                "Pago aprobado. Redirigiendo hacia: {}",
+                redirectUrl
+        );
+
+        return new RedirectView(redirectUrl);
+    }
+
+    // =========================================================
+    // RETORNO FALLIDO O CANCELADO DESDE MERCADO PAGO
+    // =========================================================
+
+    @GetMapping("/failure")
+    public RedirectView redirectAfterPaymentFailure(
+            @RequestParam(
+                    name = "payment_id",
+                    required = false
+            ) String paymentId,
+
+            @RequestParam(
+                    name = "status",
+                    required = false
+            ) String status,
+
+            @RequestParam(
+                    name = "external_reference",
+                    required = false
+            ) String externalReference
+    ) {
+        String redirectUrl = UriComponentsBuilder
+                .fromUriString(removeTrailingSlash(frontendUrl))
+                .path("/checkout")
+                .queryParam("payment", "failure")
+                .queryParam(
+                        "payment_id",
+                        valueOrEmpty(paymentId)
+                )
+                .queryParam(
+                        "status",
+                        valueOrEmpty(status)
+                )
+                .queryParam(
+                        "external_reference",
+                        valueOrEmpty(externalReference)
+                )
+                .build()
+                .encode()
+                .toUriString();
+
+        log.info(
+                "Pago cancelado o rechazado. Redirigiendo hacia: {}",
+                redirectUrl
+        );
+
+        return new RedirectView(redirectUrl);
+    }
+
+    // =========================================================
+    // RETORNO PENDIENTE DESDE MERCADO PAGO
+    // =========================================================
+
+    @GetMapping("/pending")
+    public RedirectView redirectAfterPaymentPending(
+            @RequestParam(
+                    name = "payment_id",
+                    required = false
+            ) String paymentId,
+
+            @RequestParam(
+                    name = "status",
+                    required = false
+            ) String status,
+
+            @RequestParam(
+                    name = "external_reference",
+                    required = false
+            ) String externalReference
+    ) {
+        String redirectUrl = UriComponentsBuilder
+                .fromUriString(removeTrailingSlash(frontendUrl))
+                .path("/checkout")
+                .queryParam("payment", "pending")
+                .queryParam(
+                        "payment_id",
+                        valueOrEmpty(paymentId)
+                )
+                .queryParam(
+                        "status",
+                        valueOrEmpty(status)
+                )
+                .queryParam(
+                        "external_reference",
+                        valueOrEmpty(externalReference)
+                )
+                .build()
+                .encode()
+                .toUriString();
+
+        log.info(
+                "Pago pendiente. Redirigiendo hacia: {}",
                 redirectUrl
         );
 
@@ -259,10 +355,6 @@ public class PaymentController {
                     exception
             );
 
-            /*
-             * Respondemos con error para que Mercado Pago pueda
-             * reintentar la notificación posteriormente.
-             */
             return ResponseEntity
                     .internalServerError()
                     .build();
@@ -310,7 +402,7 @@ public class PaymentController {
     }
 
     // =========================================================
-    // MÉTODOS PRIVADOS
+    // VALIDACIONES
     // =========================================================
 
     private void validateOrderRequest(
@@ -442,6 +534,10 @@ public class PaymentController {
         }
     }
 
+    // =========================================================
+    // USUARIOS
+    // =========================================================
+
     private User updateExistingUser(
             User user,
             String firstName,
@@ -484,6 +580,10 @@ public class PaymentController {
         return userRepository.save(guestUser);
     }
 
+    // =========================================================
+    // UTILIDADES
+    // =========================================================
+
     private String normalizeName(
             String name
     ) {
@@ -491,13 +591,16 @@ public class PaymentController {
             return "Invitado";
         }
 
-        return name.trim().replaceAll("\\s+", " ");
+        return name
+                .trim()
+                .replaceAll("\\s+", " ");
     }
 
     private String[] separateName(
             String fullName
     ) {
-        int firstSpaceIndex = fullName.indexOf(" ");
+        int firstSpaceIndex =
+                fullName.indexOf(" ");
 
         if (firstSpaceIndex < 0) {
             return new String[]{
@@ -507,11 +610,16 @@ public class PaymentController {
         }
 
         String firstName = fullName
-                .substring(0, firstSpaceIndex)
+                .substring(
+                        0,
+                        firstSpaceIndex
+                )
                 .trim();
 
         String lastName = fullName
-                .substring(firstSpaceIndex + 1)
+                .substring(
+                        firstSpaceIndex + 1
+                )
                 .trim();
 
         return new String[]{
@@ -541,6 +649,14 @@ public class PaymentController {
         return null;
     }
 
+    private String valueOrEmpty(
+            String value
+    ) {
+        return value == null
+                ? ""
+                : value.trim();
+    }
+
     private String removeTrailingSlash(
             String url
     ) {
@@ -550,6 +666,8 @@ public class PaymentController {
             );
         }
 
-        return url.trim().replaceAll("/+$", "");
+        return url
+                .trim()
+                .replaceAll("/+$", "");
     }
 }

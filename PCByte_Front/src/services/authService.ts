@@ -1,28 +1,64 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API_URL = "https://unrarefied-unpervasive-pandora.ngrok-free.dev/api/auth";
+import type {
+  AuthSession,
+  AuthUser,
+  RegisterRequest,
+} from "../types/auth";
+
+const API_URL =
+  "https://unrarefied-unpervasive-pandora.ngrok-free.dev/api/auth";
+
+const normalizeEmail = (
+  email: string
+): string => {
+  return email.trim().toLowerCase();
+};
 
 export const authService = {
-  register: async (userData: any) => {
-    const response = await axios.post(`${API_URL}/register`, userData);
-    if (response.data) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-    }
+  register: async (
+    userData: RegisterRequest
+  ): Promise<AuthUser> => {
+    const response =
+      await axios.post<AuthUser>(
+        `${API_URL}/register`,
+        {
+          ...userData,
+          email: normalizeEmail(
+            userData.email
+          ),
+        }
+      );
+
     return response.data;
   },
-  login: async (email: string, pass: string) => {
-    const token = btoa(`${email}:${pass}`);
-    const response = await axios.post(`${API_URL}/login`, {}, {
-      headers: { 'Authorization': `Basic ${token}` }
-    });
-    if (response.data) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-      localStorage.setItem('auth_token', token);
-    }
-    return response.data;
+
+  login: async (
+    email: string,
+    password: string
+  ): Promise<AuthSession> => {
+    const normalizedEmail =
+      normalizeEmail(email);
+
+    const authToken = btoa(
+      `${normalizedEmail}:${password}`
+    );
+
+    const response =
+      await axios.post<AuthUser>(
+        `${API_URL}/login`,
+        {},
+        {
+          headers: {
+            Authorization:
+              `Basic ${authToken}`,
+          },
+        }
+      );
+
+    return {
+      user: response.data,
+      authToken,
+    };
   },
-  logout: () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('auth_token');
-  }
 };

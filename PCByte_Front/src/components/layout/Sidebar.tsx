@@ -24,9 +24,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const asideClassName =
-    variant === "desktop"
-      ? "hidden h-[calc(100vh-90px)] w-72 flex-col gap-6 lg:sticky lg:top-0 lg:flex"
-      : "flex h-[calc(100vh-85px)] w-full flex-col gap-6";
+  variant === "desktop"
+    ? "hidden h-[calc(100vh-106px)] w-72 shrink-0 self-start flex-col gap-6 lg:sticky lg:top-[106px] lg:flex"
+    : "flex h-[calc(100vh-85px)] w-full flex-col gap-6";
 
   const containerClassName = `
     flex h-full flex-col overflow-y-auto

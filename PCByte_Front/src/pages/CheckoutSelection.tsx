@@ -1,79 +1,202 @@
-import React from 'react';
-import { User, ArrowRight, ChevronLeft, ShieldCheck, Zap } from 'lucide-react';
+import React from "react";
+import {
+  ArrowRight,
+  ChevronLeft,
+  LogIn,
+  MapPin,
+  PackageCheck,
+  ShieldCheck,
+  ShoppingBag,
+  UserRound,
+} from "lucide-react";
+
+import logo from "../assets/logo.png";
 
 interface CheckoutSelectionProps {
   onGuestContinue: () => void;
   onLoginSuccess: () => void;
+  onRegister: () => void;
   onBack: () => void;
 }
 
-export const CheckoutSelection = ({ onGuestContinue, onLoginSuccess, onBack }: CheckoutSelectionProps) => {
+export const CheckoutSelection = ({
+  onGuestContinue,
+  onLoginSuccess,
+  onRegister,
+  onBack,
+}: CheckoutSelectionProps) => {
   return (
-    <div className="fixed inset-0 bg-white flex flex-col font-sans text-slate-900 overflow-hidden">
-      
-      {/* NAVBAR TRANSACCIONAL MINIMALISTA */}
-      <nav className="h-[70px] bg-white border-b border-slate-100 px-6 flex justify-between items-center z-50 shrink-0">
-        <button 
-          onClick={onBack} 
-          className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase hover:text-slate-900 transition-all group"
-        >
-          <div className="p-1.5 bg-slate-50 rounded-lg group-hover:bg-[#97cf00]/10 transition-colors">
-            <ChevronLeft size={16} className="group-hover:text-[#97cf00]" />
-          </div>
-          Volver a la tienda
-        </button>
-        <h1 className="text-xl font-black italic tracking-tighter uppercase">
-          PC<span className="text-[#0066FF]">BYTE</span>
-        </h1>
-        <div className="hidden md:flex items-center gap-2 text-slate-300">
-          <ShieldCheck size={14} />
-          <span className="text-[9px] font-black uppercase tracking-widest">Acceso Seguro</span>
-        </div>
-      </nav>
+    <main className="min-h-screen w-full bg-gradient-to-br from-white via-[#f8fbff] to-[#f7fbef] text-slate-900">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1700px] items-center px-5 py-3 sm:px-8 lg:px-12">
+        <div className="w-full overflow-hidden rounded-[2.25rem] border border-slate-200 bg-white shadow-[0_20px_70px_rgba(15,23,42,0.11)]">
+          {/* CABECERA INTEGRADA */}
+          <header className="border-b border-slate-100 bg-gradient-to-r from-[#f7fbef] via-white to-[#f3f7ff] px-6 py-4 sm:px-8">
+            <div className="grid items-center gap-4 lg:grid-cols-[auto_1fr_auto]">
+              <img
+                src={logo}
+                alt="PCByte"
+                className="mx-auto h-auto w-48 object-contain sm:w-56 lg:mx-0"
+              />
 
-      {/* CONTENIDO CENTRAL */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50/50">
-        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8">
-          
-          {/* OPCIÓN INVITADO */}
-          <div className="bg-white p-10 rounded-[2.5rem] border-2 border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col items-center text-center hover:border-[#97cf00] transition-all group">
-            <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-[#97cf00]/10 transition-colors">
-              <Zap size={40} className="text-slate-300 group-hover:text-[#97cf00] transition-colors" />
-            </div>
-            <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-4">Compra <span className="text-[#97cf00]">Rápida</span></h2>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wide leading-relaxed mb-8">
-              Continúa como invitado. No necesitas crear una cuenta para recibir tus productos.
-            </p>
-            <button 
-              onClick={onGuestContinue}
-              className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase italic text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-black active:scale-95 transition-all shadow-lg"
-            >
-              Continuar como Invitado <ArrowRight size={18} />
-            </button>
-          </div>
+              <div className="text-center lg:border-l lg:border-slate-200 lg:pl-7 lg:text-left">
+                <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#0066FF]">
+                  Bienvenido a PCByte
+                </p>
 
-          {/* OPCIÓN LOGIN */}
-          <div className="bg-slate-900 p-10 rounded-[2.5rem] border-2 border-slate-800 shadow-2xl flex flex-col items-center text-center relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-6 opacity-10">
-              <User size={120} className="text-white" />
-            </div>
-            <div className="w-20 h-20 bg-white/5 rounded-3xl flex items-center justify-center mb-6 border border-white/10 group-hover:border-[#0066FF]/50 transition-all">
-              <User size={40} className="text-[#0066FF]" />
-            </div>
-            <h2 className="text-white text-2xl font-black uppercase italic tracking-tighter mb-4">Soy <span className="text-[#0066FF]">Cliente</span></h2>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wide leading-relaxed mb-8">
-              Inicia sesión para usar tus datos guardados y acumular puntos en tu compra.
-            </p>
-            <button 
-              onClick={onLoginSuccess}
-              className="w-full bg-[#0066FF] text-white py-5 rounded-2xl font-black uppercase italic text-sm tracking-widest flex items-center justify-center gap-3 hover:bg-[#0052cc] active:scale-95 transition-all shadow-[0_0_30px_rgba(0,102,255,0.3)]"
-            >
-              Iniciar Sesión <ArrowRight size={18} />
-            </button>
-          </div>
+                <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+                  Elige cómo deseas continuar
+                </h1>
 
+                <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 sm:text-sm">
+                  Puedes continuar como invitado o acceder a tu Cuenta
+                  PCByte para mantener organizada tu experiencia con
+                  nosotros.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-end">
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[9px] font-black uppercase tracking-wider text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+                >
+                  <ChevronLeft size={15} />
+                  Volver al catálogo
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onLoginSuccess}
+                  className="flex items-center gap-2 rounded-xl bg-[#0066FF] px-4 py-3 text-[9px] font-black uppercase tracking-wider text-white transition hover:bg-[#0055d4]"
+                >
+                  <LogIn size={15} />
+                  Ya tengo cuenta
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* OPCIONES */}
+          <section className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[0.85fr_1.15fr] lg:p-7">
+            {/* INVITADO */}
+            <article className="flex min-h-[390px] flex-col rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#97cf00]/15 text-[#6f9900]">
+                <ShoppingBag size={22} />
+              </div>
+
+              <p className="mt-6 text-[9px] font-black uppercase tracking-[0.24em] text-slate-400">
+                Invitado
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900">
+                Continuar como invitado
+              </h2>
+
+              <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500">
+                Si prefieres no crear una cuenta en este momento, puedes
+                continuar directamente con tu compra.
+              </p>
+
+              <div className="mt-auto pt-8">
+                <button
+                  type="button"
+                  onClick={onGuestContinue}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 py-4 text-xs font-black uppercase text-white transition hover:bg-black"
+                >
+                  Continuar como invitado
+                  <ArrowRight size={17} />
+                </button>
+              </div>
+            </article>
+
+            {/* CUENTA PCBYTE */}
+            <article className="relative flex min-h-[390px] flex-col overflow-hidden rounded-[1.75rem] border-2 border-[#0066FF] bg-gradient-to-br from-[#f8fbff] via-white to-[#f7fbef] p-6 shadow-[0_18px_50px_rgba(0,102,255,0.10)]">
+              <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full bg-[#97cf00]/10" />
+
+              <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0066FF]/10 text-[#0066FF]">
+                <UserRound size={23} />
+              </div>
+
+              <p className="relative mt-6 text-[9px] font-black uppercase tracking-[0.24em] text-[#0066FF]">
+                Cuenta PCByte
+              </p>
+
+              <h2 className="relative mt-2 text-2xl font-black tracking-tight text-slate-900">
+                Mantén tu experiencia PCByte en un solo lugar
+              </h2>
+
+              <p className="relative mt-3 max-w-3xl text-sm leading-6 text-slate-500">
+                Accede a tu cuenta para mantener organizadas tus compras,
+                direcciones, pedidos y garantías.
+              </p>
+
+              <div className="relative mt-6 grid gap-3 sm:grid-cols-2">
+                <FeatureItem
+                  icon={<ShoppingBag size={15} />}
+                  text="Historial de compras"
+                />
+
+                <FeatureItem
+                  icon={<MapPin size={15} />}
+                  text="Direcciones guardadas"
+                />
+
+                <FeatureItem
+                  icon={<PackageCheck size={15} />}
+                  text="Seguimiento de pedidos"
+                />
+
+                <FeatureItem
+                  icon={<ShieldCheck size={15} />}
+                  text="Garantías organizadas"
+                />
+              </div>
+
+              <div className="relative mt-auto grid gap-3 pt-7 sm:grid-cols-[1fr_auto]">
+                <button
+                  type="button"
+                  onClick={onLoginSuccess}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-6 py-4 text-xs font-black uppercase text-white transition hover:bg-[#0055d4]"
+                >
+                  Iniciar sesión
+                  <ArrowRight size={17} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onRegister}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-[#97cf00]/40 bg-[#97cf00]/10 px-6 py-4 text-xs font-black uppercase text-[#5f8200] transition hover:bg-[#97cf00] hover:text-slate-900"
+                >
+                  Crear cuenta
+                  <ArrowRight size={17} />
+                </button>
+              </div>
+            </article>
+          </section>
         </div>
       </div>
+    </main>
+  );
+};
+
+interface FeatureItemProps {
+  icon: React.ReactNode;
+  text: string;
+}
+
+const FeatureItem = ({
+  icon,
+  text,
+}: FeatureItemProps) => {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white/80 px-4 py-3">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#97cf00]/15 text-[#6f9900]">
+        {icon}
+      </div>
+
+      <p className="text-xs font-bold text-slate-600">
+        {text}
+      </p>
     </div>
   );
 };

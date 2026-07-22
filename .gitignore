@@ -15,3 +15,5 @@ PCByte_Back/*.log
 *.iml
 .DS_Store
 Thumbs.db
+Path_Sistema.txt
+VariablesEntorno_Backup.txt

@@ -1,97 +1,276 @@
-import { useEffect, useState, useMemo } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import type { Product,CartItem } from "./types/types";
-import { useLocation, Routes, Route, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+
+import type {
+  CartItem,
+  Product,
+} from "./types/types";
+
 import { useProducts } from "./hooks/useProducts";
+import { useAuth } from "./hooks/useAuth";
 
 // Componentes
 import Navbar from "./components/layout/Navbar";
-import Home from "./pages/Home";
-import Products from "./pages/Products";
 import Cart from "./components/Cart";
-import ProductDetail from "./pages/ProductDetail";
 import AdminDashboard from "./components/AdminDashboard";
 import SuccessPage from "./components/SuccessPage";
 import WhatsAppWidget from "./components/WhatsAppWidget";
 
 // Páginas
-import CheckoutSelection from './pages/CheckoutSelection';
+import Home from "./pages/Home";
+import Products from "./pages/Products";
+import ProductDetail from "./pages/ProductDetail";
+import CheckoutSelection from "./pages/CheckoutSelection";
 import { CheckoutPage } from "./pages/ChecKoutPage";
-
-// Iconos
-import { ShieldCheck } from "lucide-react";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 
 const CART_KEY = "pcbyte_cart_v1";
 
 function App() {
-  const { products, loadingProducts } = useProducts();
+  const {
+    products,
+    loadingProducts,
+  } = useProducts();
+
   const navigate = useNavigate();
   const location = useLocation();
 
-  // --- ESTADOS ---
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem(CART_KEY);
-    if (savedCart) {
-      try {
-        const parsed = JSON.parse(savedCart);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) { return []; }
-    }
-    return [];
-  });
+  const {
+    isAuthenticated,
+    isLoadingAuth,
+  } = useAuth();
 
-  const [filter, setFilter] = useState<string>("TODOS");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [sortBy, setSortBy] = useState<string>("default"); 
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [cart, setCart] =
+    useState<CartItem[]>(() => {
+      const savedCart =
+        localStorage.getItem(CART_KEY);
+
+      if (!savedCart) {
+        return [];
+      }
+
+      try {
+        const parsed =
+          JSON.parse(savedCart);
+
+        return Array.isArray(parsed)
+          ? parsed
+          : [];
+      } catch {
+        return [];
+      }
+    });
+
+  const [filter, setFilter] =
+    useState("TODOS");
+
+  const [searchTerm, setSearchTerm] =
+    useState("");
+
+  const [sortBy, setSortBy] =
+    useState("default");
+
+  const [isCartOpen, setIsCartOpen] =
+    useState(false);
+
+  const [isAdmin, setIsAdmin] =
+    useState(false);
+
+  const [currentPage, setCurrentPage] =
+    useState(1);
+
   const productsPerPage = 12;
 
+  /*
+   * Corrige la posición inicial del catálogo
+   * cuando se entra nuevamente a /productos.
+   */
+  useLayoutEffect(() => {
+    if (
+      location.pathname !==
+      "/productos"
+    ) {
+      return;
+    }
+
+    const resetScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop =
+        0;
+      document.body.scrollTop = 0;
+    };
+
+    resetScroll();
+
+    const animationFrame =
+      window.requestAnimationFrame(
+        resetScroll
+      );
+
+    return () => {
+      window.cancelAnimationFrame(
+        animationFrame
+      );
+    };
+  }, [location.pathname]);
+
+  /*
+   * Reinicia la paginación cuando cambia
+   * un filtro, búsqueda u ordenamiento.
+   */
   useEffect(() => {
-  setCurrentPage(1);
-}, [filter, searchTerm, sortBy]);
+    setCurrentPage(1);
+  }, [
+    filter,
+    searchTerm,
+    sortBy,
+  ]);
 
-  // --- LÓGICA DE NAVBAR CONDICIONAL ---
-  const hideNavbarPaths = [
-  "/",
-  "/checkout",
-  "/checkout-selection",
-  "/success",
-];
-  const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
-
-  
-
-  // 2. PERSISTENCIA
+  /*
+   * Mantiene el carrito almacenado
+   * en el navegador.
+   */
   useEffect(() => {
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    localStorage.setItem(
+      CART_KEY,
+      JSON.stringify(cart)
+    );
   }, [cart]);
 
-  // 3. LÓGICA CARRITO
-  const addToCart = (product: Product) => {
-    if (product.stock <= 0) return;
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+  const hideNavbarPaths = [
+    "/",
+    "/checkout",
+    "/checkout-selection",
+    "/success",
+    "/login",
+    "/register",
+  ];
+
+  const shouldHideNavbar =
+    hideNavbarPaths.includes(
+      location.pathname
+    );
+
+  const hideWhatsAppPaths = [
+    "/checkout",
+    "/checkout-selection",
+    "/success",
+    "/login",
+    "/register",
+  ];
+
+  const shouldHideWhatsApp =
+    hideWhatsAppPaths.includes(
+      location.pathname
+    );
+
+  const addToCart = (
+    product: Product
+  ) => {
+    if (product.stock <= 0) {
+      return;
+    }
+
+    setCart((previousCart) => {
+      const existingItem =
+        previousCart.find(
+          (item) =>
+            item.product.id ===
+            product.id
+        );
+
+      if (existingItem) {
+        return previousCart.map(
+          (item) => {
+            if (
+              item.product.id !==
+              product.id
+            ) {
+              return item;
+            }
+
+            /*
+             * Impide superar el stock
+             * disponible del producto.
+             */
+            const nextQuantity =
+              Math.min(
+                item.quantity + 1,
+                product.stock
+              );
+
+            return {
+              ...item,
+              quantity:
+                nextQuantity,
+            };
+          }
+        );
       }
-      return [...prev, { product, quantity: 1 }];
+
+      return [
+        ...previousCart,
+        {
+          product,
+          quantity: 1,
+        },
+      ];
     });
   };
 
-  const updateQuantity = (productId: number, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.product.id === productId) {
-        const newQty = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQty };
-      }
-      return item;
-    }));
+  const updateQuantity = (
+    productId: number,
+    delta: number
+  ) => {
+    setCart((previousCart) =>
+      previousCart.map((item) => {
+        if (
+          item.product.id !==
+          productId
+        ) {
+          return item;
+        }
+
+        const newQuantity =
+          Math.min(
+            item.product.stock,
+            Math.max(
+              1,
+              item.quantity + delta
+            )
+          );
+
+        return {
+          ...item,
+          quantity: newQuantity,
+        };
+      })
+    );
   };
 
-  const removeItem = (productId: number) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeItem = (
+    productId: number
+  ) => {
+    setCart((previousCart) =>
+      previousCart.filter(
+        (item) =>
+          item.product.id !==
+          productId
+      )
+    );
   };
 
   const clearCart = () => {
@@ -99,169 +278,387 @@ function App() {
     localStorage.removeItem(CART_KEY);
   };
 
-  const handleCheckoutRedirection = () => {
-    setIsCartOpen(false);
-    const userToken = localStorage.getItem("user_token");
-    if (userToken) navigate("/checkout");
-    else navigate("/checkout-selection");
+  /*
+   * Flujo oficial de compra:
+   *
+   * Autenticado:
+   * carrito -> checkout
+   *
+   * No autenticado:
+   * carrito -> checkout-selection
+   */
+  const handleCheckoutRedirection =
+    () => {
+      setIsCartOpen(false);
+
+      if (isAuthenticated) {
+        navigate("/checkout");
+        return;
+      }
+
+      navigate(
+        "/checkout-selection"
+      );
+    };
+
+  const handleSearchChange = (
+    value: string
+  ) => {
+    setSearchTerm(value);
+
+    if (value.trim() !== "") {
+      setFilter("TODOS");
+    }
   };
 
-  // 4. PROCESAMIENTO
-  const processedProducts = useMemo(() => {
-    return products
-      .filter(p => {
-        const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const productCategoryName =
-  p.category?.name ?? p.categoryName ?? "";
+  const processedProducts =
+    useMemo(() => {
+      return products
+        .filter((product) => {
+          const matchesSearch =
+            product.name
+              .toLowerCase()
+              .includes(
+                searchTerm.toLowerCase()
+              );
 
-const matchCategory =
-  filter === "TODOS" ||
-  productCategoryName.toUpperCase() === filter.toUpperCase();
-        return matchSearch && matchCategory;
-      })
-      .sort((a, b) => {
-        if (a.stock === 0 && b.stock > 0) return 1;
-        if (a.stock > 0 && b.stock === 0) return -1;
-        if (sortBy === "price-asc") return a.price - b.price;
-        if (sortBy === "price-desc") return b.price - a.price;
-        return 0;
-      });
-  }, [products, searchTerm, filter, sortBy]);
+          const categoryName =
+            product.category?.name ??
+            product.categoryName ??
+            "";
 
-  const totalPages = Math.ceil(processedProducts.length / productsPerPage) || 1;
-  const currentProducts = processedProducts.slice((currentPage - 1) * productsPerPage, currentPage * productsPerPage);
+          const matchesCategory =
+            filter === "TODOS" ||
+            categoryName.toUpperCase() ===
+              filter.toUpperCase();
 
-  if (isAdmin) return <AdminDashboard onLogout={() => setIsAdmin(false)} />;
-const handleSearchChange = (value: string) => {
-  setSearchTerm(value);
+          return (
+            matchesSearch &&
+            matchesCategory
+          );
+        })
+        .sort((a, b) => {
+          if (
+            a.stock === 0 &&
+            b.stock > 0
+          ) {
+            return 1;
+          }
 
-  if (value.trim() !== "") {
-    setFilter("TODOS");
+          if (
+            a.stock > 0 &&
+            b.stock === 0
+          ) {
+            return -1;
+          }
+
+          if (
+            sortBy === "price-asc"
+          ) {
+            return a.price - b.price;
+          }
+
+          if (
+            sortBy === "price-desc"
+          ) {
+            return b.price - a.price;
+          }
+
+          return 0;
+        });
+    }, [
+      products,
+      searchTerm,
+      filter,
+      sortBy,
+    ]);
+
+  const totalPages =
+    Math.ceil(
+      processedProducts.length /
+        productsPerPage
+    ) || 1;
+
+  const currentProducts =
+    processedProducts.slice(
+      (currentPage - 1) *
+        productsPerPage,
+      currentPage *
+        productsPerPage
+    );
+
+  const cartTotal = cart.reduce(
+    (accumulator, item) =>
+      accumulator +
+      item.product.price *
+        item.quantity,
+    0
+  );
+
+  const cartItemCount = cart.reduce(
+    (accumulator, item) =>
+      accumulator +
+      item.quantity,
+    0
+  );
+
+  if (isLoadingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-white">
+        <p className="text-xs font-black uppercase tracking-[0.25em] text-[#97cf00]">
+          Cargando PCByte...
+        </p>
+      </div>
+    );
   }
-};
+
+  if (isAdmin) {
+    return (
+      <AdminDashboard
+        onLogout={() =>
+          setIsAdmin(false)
+        }
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans flex flex-col selection:bg-[#0066FF]/30">
-      
-      {/* NAVBAR GLOBAL */}
+    <div className="flex min-h-screen w-full flex-col bg-[#0a0a0a] font-sans text-white selection:bg-[#0066FF]/30">
       {!shouldHideNavbar && (
         <Navbar
           searchTerm={searchTerm}
-           onSearchChange={handleSearchChange}
-           cartItemCount={cart.reduce((acc, item) => acc + item.quantity, 0)}
-           onOpenAdmin={() => setIsAdmin(true)}
-           onOpenCart={() => setIsCartOpen(true)}
-            onGoHome={() => navigate("/")}
-          />
-        )}
+          onSearchChange={
+            handleSearchChange
+          }
+          cartItemCount={
+            cartItemCount
+          }
+          onOpenAdmin={() =>
+            setIsAdmin(true)
+          }
+          onOpenCart={() =>
+            setIsCartOpen(true)
+          }
+          onGoHome={() =>
+            navigate("/")
+          }
+        />
+      )}
 
-      {/* RUTAS PRINCIPALES */}
-      <div className="flex-1 flex">
+      <div className="flex min-w-0 flex-1 w-full">
         <Routes>
-          {/* HOME PAGE INTEGRADO */}
           <Route
-  path="/"
-  element={
-    <Home
-      setFilter={setFilter}
-      processedProducts={processedProducts}
-      onSelectProduct={(product) => navigate(`/productos/${product.id}`)}
-      onAddToCart={addToCart}
-    />
-  }
-/>
-      <Route
-  path="/productos"
-  element={
-    <Products
-      filter={filter}
-      
-      setFilter={setFilter}
-      sortBy={sortBy}
-      setSortBy={setSortBy}
-      currentProducts={currentProducts}
-      loadingProducts={loadingProducts}
-      totalProducts={processedProducts.length}
-      activeCategory={filter}
-      searchTerm={searchTerm}
-      currentPage={currentPage}
-      totalPages={totalPages}
-      setCurrentPage={setCurrentPage}
-      onSelectProduct={(product) => navigate(`/productos/${product.id}`)}
-      onAddToCart={addToCart}
-    />
-  }
-/>
-      <Route
-        path="/productos/:id"
-        element={<ProductDetail onAddToCart={addToCart} />}
-      />
-          {/* CHECKOUT SELECTION (Con Navbar Oscuro y Ancho sincronizado) */}
-          <Route path="/checkout-selection" element={
-            <div className="flex-1 flex flex-col bg-[#050505]">
-              <nav className="bg-slate-900 border-b-2 border-[#97cf00] px-6 h-20 flex justify-between items-center shadow-2xl shrink-0">
-                <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate("/")}>
-                  <h1 className="text-2xl font-black italic tracking-tighter uppercase text-white">
-                    PC<span className="text-[#0066FF]">BYTE</span>
-                  </h1>
-                </div>
-                <div className="text-[#97cf00] flex items-center gap-2">
-                  <ShieldCheck size={20} />
-                  <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Secure_Selection</span>
-                </div>
-              </nav>
-              <div className="flex-1 flex items-center justify-center p-8">
-                <CheckoutSelection 
-                  onGuestContinue={() => navigate("/checkout")}
-                  onLoginSuccess={() => navigate("/checkout")}
-                  onBack={() => navigate("/")}
-                />
-              </div>
-            </div>
-          } />
-
-          {/* CHECKOUT PAGE (Prop clearCart pasada) */}
-          <Route 
-            path="/checkout" 
+            path="/"
             element={
-              <CheckoutPage 
-                cart={cart} 
-                total={cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0)} 
-                onBack={() => navigate("/checkout-selection")} 
-                clearCart={clearCart}
+              <Home
+                setFilter={setFilter}
+                processedProducts={
+                  processedProducts
+                }
+                onSelectProduct={(
+                  product
+                ) =>
+                  navigate(
+                    `/productos/${product.id}`
+                  )
+                }
+                onAddToCart={
+                  addToCart
+                }
               />
-            } 
+            }
           />
 
           <Route
-  path="/success"
-  element={
-    <SuccessPage
-      clearCart={clearCart}
-    />
-  }
-/>
+            path="/productos"
+            element={
+              <Products
+                filter={filter}
+                setFilter={setFilter}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                currentProducts={
+                  currentProducts
+                }
+                loadingProducts={
+                  loadingProducts
+                }
+                totalProducts={
+                  processedProducts.length
+                }
+                activeCategory={
+                  filter
+                }
+                searchTerm={
+                  searchTerm
+                }
+                currentPage={
+                  currentPage
+                }
+                totalPages={
+                  totalPages
+                }
+                setCurrentPage={
+                  setCurrentPage
+                }
+                onSelectProduct={(
+                  product
+                ) =>
+                  navigate(
+                    `/productos/${product.id}`
+                  )
+                }
+                onAddToCart={
+                  addToCart
+                }
+              />
+            }
+          />
+
+          <Route
+            path="/productos/:id"
+            element={
+              <ProductDetail
+                onAddToCart={
+                  addToCart
+                }
+              />
+            }
+          />
+
+          <Route
+            path="/checkout-selection"
+            element={
+              isAuthenticated ? (
+                <Navigate
+                  to="/checkout"
+                  replace
+                />
+              ) : (
+                <CheckoutSelection
+                  onGuestContinue={() =>
+                    navigate(
+                      "/checkout"
+                    )
+                  }
+                  onLoginSuccess={() =>
+                    navigate(
+                      "/login",
+                      {
+                        state: {
+                          from:
+                            "/checkout",
+                        },
+                      }
+                    )
+                  }
+                  onRegister={() =>
+                    navigate(
+                      "/register",
+                      {
+                        state: {
+                          from:
+                            "/checkout",
+                        },
+                      }
+                    )
+                  }
+                  onBack={() =>
+                    navigate(
+                      "/productos"
+                    )
+                  }
+                />
+              )
+            }
+          />
+
+          <Route
+            path="/login"
+            element={
+              <LoginPage />
+            }
+          />
+
+          <Route
+            path="/register"
+            element={
+              <RegisterPage />
+            }
+          />
+
+          <Route
+            path="/checkout"
+            element={
+              <CheckoutPage
+                cart={cart}
+                total={cartTotal}
+                onBack={() => {
+                  if (
+                    isAuthenticated
+                  ) {
+                    navigate(
+                      "/productos"
+                    );
+                    return;
+                  }
+
+                  navigate(
+                    "/checkout-selection"
+                  );
+                }}
+                clearCart={
+                  clearCart
+                }
+              />
+            }
+          />
+
+          <Route
+            path="/success"
+            element={
+              <SuccessPage
+                clearCart={
+                  clearCart
+                }
+              />
+            }
+          />
         </Routes>
       </div>
 
-      {/* MODALES GLOBALES */}
-      
-
       {isCartOpen && (
         <div className="fixed inset-0 z-[200] flex justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCartOpen(false)} />
-          <div className="relative w-full max-w-md h-full animate-in slide-in-from-right duration-300">
-            <Cart 
-              cart={cart} 
-              onClose={() => setIsCartOpen(false)} 
-              onRemove={removeItem} 
-              onUpdateQuantity={updateQuantity} 
-              onCheckout={handleCheckoutRedirection} 
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() =>
+              setIsCartOpen(false)
+            }
+          />
+
+          <div className="relative h-full w-full max-w-md animate-in slide-in-from-right duration-300">
+            <Cart
+              cart={cart}
+              onClose={() =>
+                setIsCartOpen(false)
+              }
+              onRemove={
+                removeItem
+              }
+              onUpdateQuantity={
+                updateQuantity
+              }
+              onCheckout={
+                handleCheckoutRedirection
+              }
             />
           </div>
         </div>
       )}
-      
-      <WhatsAppWidget />
+
+      {!shouldHideWhatsApp && (
+        <WhatsAppWidget />
+      )}
     </div>
   );
 }

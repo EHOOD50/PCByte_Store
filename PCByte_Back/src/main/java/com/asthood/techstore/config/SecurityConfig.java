@@ -14,7 +14,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -62,22 +61,38 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService(UserRepository userRepository) {
+    public UserDetailsService userDetailsService(
+            UserRepository userRepository
+    ) {
         return email -> {
-            // 1. Verificamos si es el administrador maestro
             if ("admin".equals(email)) {
                 return User.withUsername("admin")
-                        .password("{noop}1234") // Mantenemos tu acceso actual
+                        .password("{noop}1234")
                         .roles("ADMIN")
                         .build();
             }
 
-            // 2. Si no es admin, buscamos en la base de datos de clientes
-            com.asthood.techstore.model.User customer = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + email));
+            com.asthood.techstore.model.User customer =
+                    userRepository.findByEmail(email)
+                            .orElseThrow(() ->
+                                    new UsernameNotFoundException(
+                                            "Usuario no encontrado: " + email
+                                    )
+                            );
+
+            if (
+                    customer.getStatus()
+                            != com.asthood.techstore.model.UserStatus.REGISTRADO
+                            || customer.getPassword() == null
+                            || customer.getPassword().isBlank()
+            ) {
+                throw new UsernameNotFoundException(
+                        "El usuario no tiene una cuenta registrada."
+                );
+            }
 
             return User.withUsername(customer.getEmail())
-                    .password(customer.getPassword()) // Aquí vendrá el hash de BCrypt
+                    .password(customer.getPassword())
                     .roles("USER")
                     .build();
         };
