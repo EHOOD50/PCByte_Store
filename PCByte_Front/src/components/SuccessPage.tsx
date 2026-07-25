@@ -38,6 +38,12 @@ type PageStatus =
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 3000;
 
+const CHECKOUT_SESSION_KEY =
+  "pcbyte_checkout_session_v1";
+  
+const PENDING_ORDER_KEY =
+  "pcbyte_pending_order_v1";
+
 const SuccessPage: React.FC<SuccessPageProps> = ({
   clearCart,
 }) => {
@@ -86,10 +92,18 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
         setOrder(fetchedOrder);
 
         if (fetchedOrder.status === "PAGADO") {
-          clearCart();
-          setPageStatus("success");
-          return;
-        }
+  localStorage.removeItem(
+    PENDING_ORDER_KEY
+  );
+
+  sessionStorage.removeItem(
+    CHECKOUT_SESSION_KEY
+  );
+
+  clearCart();
+  setPageStatus("success");
+  return;
+}
 
         if (retryCount >= MAX_RETRIES) {
           setPageStatus("error");

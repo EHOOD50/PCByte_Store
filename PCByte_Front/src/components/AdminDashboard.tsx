@@ -4,7 +4,9 @@ import React, {
   useState,
 } from "react";
 
-import { Cpu } from "lucide-react";
+import {
+  Cpu,
+} from "lucide-react";
 
 import AdminLayout from "./admin/layout/AdminLayout";
 import AdminHome from "./admin/home/AdminHome";
@@ -46,6 +48,26 @@ interface ProductSummary {
   };
 }
 
+interface AdminNavigationState {
+  tab: AdminTab;
+  orderId?: number;
+  productId?: number;
+  shippingId?: number;
+  customerId?: number;
+}
+
+const VALID_ADMIN_TABS: AdminTab[] = [
+  "home",
+  "products",
+  "categories",
+  "brands",
+  "orders",
+  "shipping",
+  "menu-builder",
+  "customers",
+  "settings",
+];
+
 const DEFAULT_MENU_GROUPS: MenuGroup[] = [
   {
     id: 1,
@@ -61,17 +83,183 @@ const DEFAULT_MENU_GROUPS: MenuGroup[] = [
   },
 ];
 
+const isAdminTab = (
+  value: string | null
+): value is AdminTab => {
+  return (
+    value !== null &&
+    VALID_ADMIN_TABS.includes(
+      value as AdminTab
+    )
+  );
+};
+
+const parsePositiveId = (
+  value: string | null
+): number | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsedValue =
+    Number(value);
+
+  if (
+    !Number.isInteger(
+      parsedValue
+    ) ||
+    parsedValue <= 0
+  ) {
+    return undefined;
+  }
+
+  return parsedValue;
+};
+
+const readNavigationFromUrl =
+  (): AdminNavigationState => {
+    const parameters =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    const section =
+      parameters.get(
+        "section"
+      );
+
+    return {
+      tab: isAdminTab(section)
+        ? section
+        : "home",
+
+      orderId:
+        parsePositiveId(
+          parameters.get(
+            "orderId"
+          )
+        ),
+
+      productId:
+        parsePositiveId(
+          parameters.get(
+            "productId"
+          )
+        ),
+
+      shippingId:
+        parsePositiveId(
+          parameters.get(
+            "shippingId"
+          )
+        ),
+
+      customerId:
+        parsePositiveId(
+          parameters.get(
+            "customerId"
+          )
+        ),
+    };
+  };
+
+const buildNavigationUrl = (
+  navigation:
+    AdminNavigationState
+) => {
+  const url =
+    new URL(
+      window.location.href
+    );
+
+  url.searchParams.set(
+    "section",
+    navigation.tab
+  );
+
+  url.searchParams.delete(
+    "orderId"
+  );
+
+  url.searchParams.delete(
+    "productId"
+  );
+
+  url.searchParams.delete(
+    "shippingId"
+  );
+
+  url.searchParams.delete(
+    "customerId"
+  );
+
+  if (
+    navigation.orderId !==
+    undefined
+  ) {
+    url.searchParams.set(
+      "orderId",
+      String(
+        navigation.orderId
+      )
+    );
+  }
+
+  if (
+    navigation.productId !==
+    undefined
+  ) {
+    url.searchParams.set(
+      "productId",
+      String(
+        navigation.productId
+      )
+    );
+  }
+
+  if (
+    navigation.shippingId !==
+    undefined
+  ) {
+    url.searchParams.set(
+      "shippingId",
+      String(
+        navigation.shippingId
+      )
+    );
+  }
+
+  if (
+    navigation.customerId !==
+    undefined
+  ) {
+    url.searchParams.set(
+      "customerId",
+      String(
+        navigation.customerId
+      )
+    );
+  }
+
+  return (
+    url.pathname +
+    url.search +
+    url.hash
+  );
+};
+
 const AdminDashboard: React.FC<
   AdminDashboardProps
 > = ({
   onLogout,
 }) => {
   const [
-    activeTab,
-    setActiveTab,
-  ] = useState<AdminTab>(
-    "home"
-  );
+    navigation,
+    setNavigation,
+  ] =
+    useState<AdminNavigationState>(
+      readNavigationFromUrl
+    );
 
   const [
     categories,
@@ -81,9 +269,10 @@ const AdminDashboard: React.FC<
   const [
     products,
     setProducts,
-  ] = useState<ProductSummary[]>(
-    []
-  );
+  ] =
+    useState<ProductSummary[]>(
+      []
+    );
 
   const [
     menuGroups,
@@ -104,14 +293,20 @@ const AdminDashboard: React.FC<
     null
   );
 
+  const activeTab =
+    navigation.tab;
+
   const showNotification = (
     message: string
   ) => {
     setNotification(message);
 
-    window.setTimeout(() => {
-      setNotification(null);
-    }, 3000);
+    window.setTimeout(
+      () => {
+        setNotification(null);
+      },
+      3000
+    );
   };
 
   const loadLocalMenuConfiguration =
@@ -157,22 +352,32 @@ const AdminDashboard: React.FC<
           menuConfigResponse,
         ] = await Promise.all([
           adminApi
-            .get("/categories")
-            .catch(() => ({
-              data: [],
-            })),
+            .get(
+              "/categories"
+            )
+            .catch(
+              () => ({
+                data: [],
+              })
+            ),
 
           adminApi
             .get(
               "/products?size=1000"
             )
-            .catch(() => ({
-              data: [],
-            })),
+            .catch(
+              () => ({
+                data: [],
+              })
+            ),
 
           adminApi
-            .get("/config/menu")
-            .catch(() => null),
+            .get(
+              "/config/menu"
+            )
+            .catch(
+              () => null
+            ),
         ]);
 
         const categoriesContent =
@@ -271,8 +476,31 @@ const AdminDashboard: React.FC<
     void fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    const handleBrowserNavigation =
+      () => {
+        setNavigation(
+          readNavigationFromUrl()
+        );
+      };
+
+    window.addEventListener(
+      "popstate",
+      handleBrowserNavigation
+    );
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        handleBrowserNavigation
+      );
+    };
+  }, []);
+
   const categoryProductCounts =
-    useMemo<Record<string, number>>(
+    useMemo<
+      Record<string, number>
+    >(
       () => {
         return products.reduce<
           Record<string, number>
@@ -283,7 +511,8 @@ const AdminDashboard: React.FC<
           ) => {
             const categoryName =
               product.categoryName ??
-              product.category?.name;
+              product.category
+                ?.name;
 
             if (!categoryName) {
               return counts;
@@ -294,7 +523,9 @@ const AdminDashboard: React.FC<
                 .trim()
                 .toUpperCase();
 
-            counts[normalizedName] =
+            counts[
+              normalizedName
+            ] =
               (
                 counts[
                   normalizedName
@@ -353,14 +584,45 @@ const AdminDashboard: React.FC<
       }
     };
 
-  const changeTab = (
-    tab: AdminTab
+  const navigateAdmin = (
+    nextNavigation:
+      AdminNavigationState,
+    replace = false
   ) => {
-    setActiveTab(tab);
+    setNavigation(
+      nextNavigation
+    );
+
+    const nextUrl =
+      buildNavigationUrl(
+        nextNavigation
+      );
+
+    if (replace) {
+      window.history.replaceState(
+        {},
+        "",
+        nextUrl
+      );
+    } else {
+      window.history.pushState(
+        {},
+        "",
+        nextUrl
+      );
+    }
 
     window.scrollTo({
       top: 0,
       behavior: "smooth",
+    });
+  };
+
+  const changeTab = (
+    tab: AdminTab
+  ) => {
+    navigateAdmin({
+      tab,
     });
   };
 
@@ -387,13 +649,19 @@ const AdminDashboard: React.FC<
           );
 
         case "brands":
-          return <BrandManager />;
+          return (
+            <BrandManager />
+          );
 
         case "orders":
-          return <OrdersManager />;
+          return (
+            <OrdersManager />
+          );
 
         case "shipping":
-          return <ShippingManager />;
+          return (
+            <ShippingManager />
+          );
 
         case "menu-builder":
           return (
@@ -456,7 +724,9 @@ const AdminDashboard: React.FC<
   return (
     <AdminLayout
       activeTab={activeTab}
-      onChangeTab={changeTab}
+      onChangeTab={
+        changeTab
+      }
       onLogout={onLogout}
     >
       {notification && (

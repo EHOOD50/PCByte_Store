@@ -102,6 +102,37 @@ public interface OrderRepository
             @Param("end") LocalDateTime end
     );
 
+    /*
+     * Recupera y bloquea una orden pendiente que puede
+     * reutilizarse para un nuevo intento de pago.
+     *
+     * También carga los productos de la orden para poder
+     * comparar el contenido con el carrito actual.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT DISTINCT o
+            FROM Order o
+            LEFT JOIN FETCH o.orderItems oi
+            LEFT JOIN FETCH oi.product
+            WHERE o.id = :orderId
+              AND LOWER(o.email) = LOWER(:email)
+              AND o.status = :status
+              AND (
+                    o.paymentId IS NULL
+                    OR TRIM(o.paymentId) = ''
+              )
+            """)
+    Optional<Order> findReusablePendingOrderForUpdate(
+            @Param("orderId") Long orderId,
+            @Param("email") String email,
+            @Param("status") OrderStatus status
+    );
+
+    /*
+     * Recupera y bloquea una orden para confirmar el pago
+     * y descontar el stock de manera segura.
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT DISTINCT o

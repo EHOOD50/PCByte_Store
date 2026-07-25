@@ -3,7 +3,9 @@ import React, {
   useState,
 } from "react";
 
-import { PackageX } from "lucide-react";
+import {
+  PackageX,
+} from "lucide-react";
 
 import {
   useLocation,
@@ -12,6 +14,7 @@ import {
 
 import api from "../api/axios";
 import { useAuth } from "../hooks/useAuth";
+
 import ReviewOrderStep from "../components/checkout/ReviewOrderStep";
 import CheckoutHeader from "../components/checkout/CheckoutHeader";
 import CheckoutSteps from "../components/checkout/CheckoutSteps";
@@ -66,8 +69,16 @@ interface PaymentNotice {
   message: string;
 }
 
+interface PaymentPreferenceResponse {
+  checkoutUrl?: string;
+  orderId?: number;
+}
+
 const CHECKOUT_SESSION_KEY =
   "pcbyte_checkout_session_v1";
+
+const PENDING_ORDER_KEY =
+  "pcbyte_pending_order_v1";
 
 const initialGuestInformation: GuestInformationData = {
   firstName: "",
@@ -119,9 +130,10 @@ const readStoredCheckout =
         return null;
       }
 
-      const parsed = JSON.parse(
-        rawValue
-      ) as Partial<StoredCheckoutState>;
+      const parsed =
+        JSON.parse(
+          rawValue
+        ) as Partial<StoredCheckoutState>;
 
       if (
         !isCheckoutStep(
@@ -156,6 +168,52 @@ const readStoredCheckout =
     }
   };
 
+const readPendingOrderId =
+  (): number | null => {
+    const storedValue =
+      localStorage.getItem(
+        PENDING_ORDER_KEY
+      );
+
+    if (!storedValue) {
+      return null;
+    }
+
+    const parsedValue =
+      Number(storedValue);
+
+    if (
+      !Number.isInteger(
+        parsedValue
+      ) ||
+      parsedValue <= 0
+    ) {
+      localStorage.removeItem(
+        PENDING_ORDER_KEY
+      );
+
+      return null;
+    }
+
+    return parsedValue;
+  };
+
+const storePendingOrderId = (
+  orderId: number
+) => {
+  localStorage.setItem(
+    PENDING_ORDER_KEY,
+    String(orderId)
+  );
+};
+
+const clearPendingOrderId =
+  () => {
+    localStorage.removeItem(
+      PENDING_ORDER_KEY
+    );
+  };
+
 const getInitialStep =
   (): CheckoutStep => {
     const queryParameters =
@@ -164,7 +222,9 @@ const getInitialStep =
       );
 
     const paymentReturn =
-      queryParameters.get("payment");
+      queryParameters.get(
+        "payment"
+      );
 
     if (
       paymentReturn === "failure" ||
@@ -186,8 +246,11 @@ export const CheckoutPage = ({
   onBack,
   clearCart,
 }: CheckoutPageProps) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate =
+    useNavigate();
+
+  const location =
+    useLocation();
 
   const {
     user,
@@ -263,15 +326,22 @@ export const CheckoutPage = ({
       null
     );
 
-  const [orderNumber] = useState<
-    string | null
-  >(null);
+  const [
+    orderNumber,
+    setOrderNumber,
+  ] = useState<string | null>(
+    () => {
+      const pendingOrderId =
+        readPendingOrderId();
 
-  /*
-   * Precarga los datos del usuario
-   * autenticado sin reemplazar los
-   * valores restaurados del checkout.
-   */
+      return pendingOrderId
+        ? String(
+            pendingOrderId
+          )
+        : null;
+    }
+  );
+
   useEffect(() => {
     if (
       !isAuthenticated ||
@@ -308,11 +378,6 @@ export const CheckoutPage = ({
     user,
   ]);
 
-  /*
-   * Mantiene temporalmente el estado
-   * mientras el cliente sale hacia
-   * Mercado Pago.
-   */
   useEffect(() => {
     const storedState: StoredCheckoutState =
       {
@@ -337,10 +402,6 @@ export const CheckoutPage = ({
     paymentMethod,
   ]);
 
-  /*
-   * Procesa el retorno fallido o
-   * pendiente enviado por el backend.
-   */
   useEffect(() => {
     const queryParameters =
       new URLSearchParams(
@@ -348,7 +409,36 @@ export const CheckoutPage = ({
       );
 
     const paymentReturn =
-      queryParameters.get("payment");
+      queryParameters.get(
+        "payment"
+      );
+
+    const returnedOrderId =
+      queryParameters.get(
+        "external_reference"
+      );
+
+    if (returnedOrderId) {
+      const parsedOrderId =
+        Number(returnedOrderId);
+
+      if (
+        Number.isInteger(
+          parsedOrderId
+        ) &&
+        parsedOrderId > 0
+      ) {
+        storePendingOrderId(
+          parsedOrderId
+        );
+
+        setOrderNumber(
+          String(
+            parsedOrderId
+          )
+        );
+      }
+    }
 
     if (
       paymentReturn !== "failure" &&
@@ -357,7 +447,9 @@ export const CheckoutPage = ({
       return;
     }
 
-    setCurrentStep("payment");
+    setCurrentStep(
+      "payment"
+    );
 
     setPaymentMethod(
       (previous) =>
@@ -371,7 +463,7 @@ export const CheckoutPage = ({
       setPaymentNotice({
         type: "failure",
         message:
-          "El pago no fue completado. Puedes revisar la información e intentarlo nuevamente.",
+          "El pago no fue completado. Puedes revisar la información e intentarlo nuevamente con la misma orden.",
       });
     }
 
@@ -385,9 +477,12 @@ export const CheckoutPage = ({
       });
     }
 
-    navigate("/checkout", {
-      replace: true,
-    });
+    navigate(
+      "/checkout",
+      {
+        replace: true,
+      }
+    );
   }, [
     location.search,
     navigate,
@@ -396,8 +491,10 @@ export const CheckoutPage = ({
   const handleInformationChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const { name, value } =
-      event.target;
+    const {
+      name,
+      value,
+    } = event.target;
 
     setInformationData(
       (previous) => ({
@@ -412,8 +509,10 @@ export const CheckoutPage = ({
       | React.ChangeEvent<HTMLInputElement>
       | React.ChangeEvent<HTMLSelectElement>
   ) => {
-    const { name, value } =
-      event.target;
+    const {
+      name,
+      value,
+    } = event.target;
 
     setAddressData(
       (previous) => ({
@@ -461,11 +560,20 @@ export const CheckoutPage = ({
   const goToStep = (
     step: CheckoutStep
   ) => {
-    setCurrentStep(step);
-    setPaymentError("");
+    setCurrentStep(
+      step
+    );
 
-    if (step !== "payment") {
-      setPaymentNotice(null);
+    setPaymentError(
+      ""
+    );
+
+    if (
+      step !== "payment"
+    ) {
+      setPaymentNotice(
+        null
+      );
     }
 
     window.scrollTo({
@@ -483,9 +591,17 @@ export const CheckoutPage = ({
         return;
       }
 
-      setIsLoading(true);
-      setPaymentError("");
-      setPaymentNotice(null);
+      setIsLoading(
+        true
+      );
+
+      setPaymentError(
+        ""
+      );
+
+      setPaymentNotice(
+        null
+      );
 
       try {
         const apartment =
@@ -495,6 +611,9 @@ export const CheckoutPage = ({
             .complementDetail
             ? `${addressData.complementType} ${addressData.complementDetail}`.trim()
             : "";
+
+        const pendingOrderId =
+          readPendingOrderId();
 
         const payer = {
           firstName:
@@ -507,60 +626,80 @@ export const CheckoutPage = ({
               .lastName
               .trim(),
 
-          name: `${informationData.firstName} ${informationData.lastName}`.trim(),
+          name:
+            `${informationData.firstName} ${informationData.lastName}`.trim(),
 
           email:
-            informationData.email
+            informationData
+              .email
               .trim()
               .toLowerCase(),
 
           phone:
-            informationData.phone
+            informationData
+              .phone
               .trim(),
 
           street:
-            addressData.street
+            addressData
+              .street
               .trim(),
 
           number:
-            addressData.number
+            addressData
+              .number
               .trim(),
 
           apartment:
-            apartment || null,
+            apartment ||
+            null,
 
           city:
-            addressData.city
+            addressData
+              .city
               .trim(),
 
           region:
-            addressData.region
+            addressData
+              .region
               .trim(),
 
           extraInfo:
-            addressData.extraInfo
+            addressData
+              .extraInfo
               .trim() ||
             null,
         };
 
         const response =
-          await api.post(
+          await api.post<PaymentPreferenceResponse>(
             "/payments/create_preference",
             {
+              pendingOrderId,
+
+              userId:
+                isAuthenticated
+                  ? user?.id ??
+                    null
+                  : null,
+
               payer,
 
-              items: cart.map(
-                (item) => ({
-                  productId:
-                    item.product.id,
+              items:
+                cart.map(
+                  (item) => ({
+                    productId:
+                      item.product
+                        .id,
 
-                  name:
-                    item.product.name,
+                    name:
+                      item.product
+                        .name,
 
-                  quantity:
-                    item.quantity,
-                })
-              ),
+                    quantity:
+                      item.quantity,
+                  })
+                ),
 
               total,
               shippingMethod,
@@ -571,16 +710,40 @@ export const CheckoutPage = ({
           response.data
             ?.checkoutUrl;
 
-        if (!checkoutUrl) {
+        const returnedOrderId =
+          response.data
+            ?.orderId;
+
+        if (
+          !checkoutUrl
+        ) {
           throw new Error(
             "El servidor no devolvió la URL de pago."
           );
         }
 
-        /*
-         * Persistencia inmediata antes
-         * de salir de PCByte.
-         */
+        if (
+          !returnedOrderId ||
+          !Number.isInteger(
+            returnedOrderId
+          ) ||
+          returnedOrderId <= 0
+        ) {
+          throw new Error(
+            "El servidor no devolvió un número de orden válido."
+          );
+        }
+
+        storePendingOrderId(
+          returnedOrderId
+        );
+
+        setOrderNumber(
+          String(
+            returnedOrderId
+          )
+        );
+
         const storedState: StoredCheckoutState =
           {
             currentStep:
@@ -602,31 +765,64 @@ export const CheckoutPage = ({
         window.location.href =
           checkoutUrl;
       } catch (
-        requestError: any
+        requestError: unknown
       ) {
         console.error(
           "Error al crear el pago:",
           requestError
         );
 
-        const responseData =
-          requestError.response
-            ?.data;
+        let errorMessage =
+          "No fue posible preparar el pago.";
 
-        const backendMessage =
-          typeof responseData ===
-          "string"
-            ? responseData
-            : responseData
-                ?.message;
+        if (
+          requestError instanceof
+          Error
+        ) {
+          errorMessage =
+            requestError.message;
+        }
+
+        if (
+          typeof requestError ===
+            "object" &&
+          requestError !== null &&
+          "response" in requestError
+        ) {
+          const axiosError =
+            requestError as {
+              response?: {
+                data?: {
+                  message?: string;
+                } | string;
+              };
+            };
+
+          const responseData =
+            axiosError.response
+              ?.data;
+
+          if (
+            typeof responseData ===
+            "string"
+          ) {
+            errorMessage =
+              responseData;
+          } else if (
+            responseData?.message
+          ) {
+            errorMessage =
+              responseData.message;
+          }
+        }
 
         setPaymentError(
-          backendMessage ||
-            requestError.message ||
-            "No fue posible preparar el pago."
+          errorMessage
         );
       } finally {
-        setIsLoading(false);
+        setIsLoading(
+          false
+        );
       }
     };
 
@@ -636,16 +832,25 @@ export const CheckoutPage = ({
         CHECKOUT_SESSION_KEY
       );
 
+      clearPendingOrderId();
+
       clearCart();
-      navigate("/productos");
+
+      navigate(
+        "/productos"
+      );
     };
 
-  if (cart.length === 0) {
+  if (
+    cart.length === 0
+  ) {
     return (
       <main className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-white via-[#f8fbff] to-[#f7fbef] px-5 text-slate-900">
         <section className="w-full max-w-lg rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-xl">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-            <PackageX size={27} />
+            <PackageX
+              size={27}
+            />
           </div>
 
           <h1 className="mt-5 text-2xl font-black tracking-tight">
@@ -662,6 +867,8 @@ export const CheckoutPage = ({
               sessionStorage.removeItem(
                 CHECKOUT_SESSION_KEY
               );
+
+              clearPendingOrderId();
 
               navigate(
                 "/productos"
@@ -681,7 +888,9 @@ export const CheckoutPage = ({
       <div className="mx-auto min-h-screen w-full max-w-[1700px] px-4 py-3 sm:px-6 lg:px-10">
         <div className="overflow-hidden rounded-[2.25rem] border border-slate-200 bg-white shadow-[0_20px_70px_rgba(15,23,42,0.11)]">
           <CheckoutHeader
-            onBack={onBack}
+            onBack={
+              onBack
+            }
           />
 
           <CheckoutSteps
@@ -779,54 +988,75 @@ export const CheckoutPage = ({
 
                   {paymentError && (
                     <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
-                      {paymentError}
+                      {
+                        paymentError
+                      }
                     </div>
                   )}
 
                   <PaymentStep
-  selectedMethod={paymentMethod}
-  isLoading={false}
-  onSelectMethod={setPaymentMethod}
-  onBack={() =>
-    goToStep("shipping")
-  }
-  onPay={() =>
-    goToStep("review")
-  }
-/>
+                    selectedMethod={
+                      paymentMethod
+                    }
+                    isLoading={
+                      false
+                    }
+                    onSelectMethod={
+                      setPaymentMethod
+                    }
+                    onBack={() =>
+                      goToStep(
+                        "shipping"
+                      )
+                    }
+                    onPay={() =>
+                      goToStep(
+                        "review"
+                      )
+                    }
+                  />
                 </>
               )}
+
               {currentStep ===
-  "review" && (
-  <ReviewOrderStep
-    informationData={
-      informationData
-    }
-    addressData={
-      addressData
-    }
-    shippingLabel={
-  shippingMethod === "home_delivery"
-    ? "Despacho a domicilio"
-    : "No seleccionado"
-}
-    shippingDescription=""
-    shippingCost={0}
-    paymentMethod={
-      paymentMethod
-    }
-    cart={cart}
-    total={total}
-    isLoading={isLoading}
-    onBack={() =>
-      goToStep("payment")
-    }
-    onConfirm={
-      handlePayment
-    }
-  />
-)}
-              
+                "review" && (
+                <ReviewOrderStep
+                  informationData={
+                    informationData
+                  }
+                  addressData={
+                    addressData
+                  }
+                  shippingLabel={
+                    shippingMethod ===
+                    "home_delivery"
+                      ? "Despacho a domicilio"
+                      : "No seleccionado"
+                  }
+                  shippingDescription=""
+                  shippingCost={0}
+                  paymentMethod={
+                    paymentMethod
+                  }
+                  cart={
+                    cart
+                  }
+                  total={
+                    total
+                  }
+                  isLoading={
+                    isLoading
+                  }
+                  onBack={() =>
+                    goToStep(
+                      "payment"
+                    )
+                  }
+                  onConfirm={
+                    handlePayment
+                  }
+                />
+              )}
 
               {currentStep ===
                 "confirmation" && (
@@ -835,7 +1065,8 @@ export const CheckoutPage = ({
                     orderNumber
                   }
                   email={
-                    informationData.email
+                    informationData
+                      .email
                   }
                   onGoToCatalog={
                     handleGoToCatalog
@@ -845,8 +1076,12 @@ export const CheckoutPage = ({
             </div>
 
             <CheckoutSummary
-              cart={cart}
-              total={total}
+              cart={
+                cart
+              }
+              total={
+                total
+              }
             />
           </div>
         </div>
