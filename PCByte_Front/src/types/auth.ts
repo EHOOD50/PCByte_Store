@@ -6,10 +6,14 @@ export type UserStatus =
 
 export interface AuthUser {
   id: number;
+
   firstName: string;
   lastName: string;
+
   email: string;
+
   phone?: string | null;
+
   status: UserStatus;
 }
 
@@ -26,8 +30,10 @@ export interface LoginCredentials {
 export interface RegisterRequest {
   firstName: string;
   lastName: string;
+
   email: string;
   password: string;
+
   phone?: string;
 
   addressLabel?: string;
@@ -35,39 +41,22 @@ export interface RegisterRequest {
   street?: string;
   number?: string;
 
-  /*
-   * Valor final enviado al backend.
-   *
-   * Ejemplos:
-   * "Departamento 1203"
-   * "Torre B"
-   * "Parcela 7"
-   */
   apartment?: string;
 
   city?: string;
   region?: string;
 
-  /*
-   * Referencia libre para facilitar el despacho.
-   *
-   * Ejemplo:
-   * "Alameda entre Maipú y Chacabuco"
-   */
   extraInfo?: string;
 
-  /*
-   * Campos usados únicamente por el formulario.
-   * Antes de enviar la solicitud se combinan
-   * para construir apartment.
-   */
   complementType?: string;
   complementDetail?: string;
 }
 
 export interface AuthContextValue {
   user: AuthUser | null;
+
   authToken: string | null;
+
   isAuthenticated: boolean;
   isLoadingAuth: boolean;
 
@@ -79,6 +68,20 @@ export interface AuthContextValue {
   register: (
     request: RegisterRequest
   ) => Promise<AuthUser>;
+
+  updateUser: (
+    updatedUser: AuthUser
+  ) => void;
+
+  /*
+   * Sustituye el token Basic de la sesión actual
+   * sin modificar los datos del usuario.
+   *
+   * Se utiliza después de cambiar la contraseña.
+   */
+  updateAuthToken: (
+    newAuthToken: string
+  ) => void;
 
   logout: () => void;
 }

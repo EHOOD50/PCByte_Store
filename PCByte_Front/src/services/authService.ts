@@ -1,4 +1,4 @@
-import axios from "axios";
+import api from "../api/axios";
 
 import type {
   AuthSession,
@@ -6,33 +6,44 @@ import type {
   RegisterRequest,
 } from "../types/auth";
 
-const API_URL =
-  "https://unrarefied-unpervasive-pandora.ngrok-free.dev/api/auth";
-
 const normalizeEmail = (
   email: string
 ): string => {
-  return email.trim().toLowerCase();
+  return email
+    .trim()
+    .toLowerCase();
 };
 
 export const authService = {
+  /*
+   * Registra una nueva cuenta o convierte
+   * un usuario invitado en registrado.
+   */
   register: async (
     userData: RegisterRequest
   ): Promise<AuthUser> => {
     const response =
-      await axios.post<AuthUser>(
-        `${API_URL}/register`,
+      await api.post<AuthUser>(
+        "/auth/register",
         {
           ...userData,
-          email: normalizeEmail(
-            userData.email
-          ),
+
+          email:
+            normalizeEmail(
+              userData.email
+            ),
         }
       );
 
     return response.data;
   },
 
+  /*
+   * Inicia sesión mediante Basic Auth.
+   *
+   * El token generado se conserva en AuthContext
+   * y localStorage.
+   */
   login: async (
     email: string,
     password: string
@@ -40,13 +51,14 @@ export const authService = {
     const normalizedEmail =
       normalizeEmail(email);
 
-    const authToken = btoa(
-      `${normalizedEmail}:${password}`
-    );
+    const authToken =
+      btoa(
+        `${normalizedEmail}:${password}`
+      );
 
     const response =
-      await axios.post<AuthUser>(
-        `${API_URL}/login`,
+      await api.post<AuthUser>(
+        "/auth/login",
         {},
         {
           headers: {
@@ -57,7 +69,9 @@ export const authService = {
       );
 
     return {
-      user: response.data,
+      user:
+        response.data,
+
       authToken,
     };
   },

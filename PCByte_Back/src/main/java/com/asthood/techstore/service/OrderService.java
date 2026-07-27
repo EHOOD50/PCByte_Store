@@ -2,6 +2,7 @@ package com.asthood.techstore.service;
 
 import com.asthood.techstore.dto.OrderItemDTO;
 import com.asthood.techstore.dto.OrderResponseDTO;
+import com.asthood.techstore.dto.ProductSummaryDTO;
 import com.asthood.techstore.model.Order;
 import com.asthood.techstore.model.OrderItem;
 import com.asthood.techstore.model.OrderStatus;
@@ -29,9 +30,44 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponseDTO> getAllOrders() {
-        log.info("Recuperando todas las órdenes");
+        log.info(
+                "Recuperando todas las órdenes"
+        );
 
-        return orderRepository.findAll()
+        return orderRepository
+                .findAll()
+                .stream()
+                .map(this::convertToDTO)
+                .toList();
+    }
+
+    // ============================
+    // LISTAR ÓRDENES DEL CLIENTE
+    // ============================
+
+    /**
+     * Recupera las órdenes asociadas a un usuario,
+     * mostrando primero las compras más recientes.
+     */
+    @Transactional(readOnly = true)
+    public List<OrderResponseDTO> getOrdersByUser(
+            Long userId
+    ) {
+        if (userId == null) {
+            throw new IllegalArgumentException(
+                    "El ID del usuario es obligatorio."
+            );
+        }
+
+        log.info(
+                "Recuperando órdenes del usuario #{}",
+                userId
+        );
+
+        return orderRepository
+                .findByUserIdOrderByCreatedAtDesc(
+                        userId
+                )
                 .stream()
                 .map(this::convertToDTO)
                 .toList();
@@ -46,19 +82,27 @@ public class OrderService {
             Long id,
             OrderStatus newStatus
     ) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository
+                .findById(id)
                 .orElseThrow(() ->
                         new EntityNotFoundException(
-                                "Orden no encontrada con ID: " + id
+                                "Orden no encontrada con ID: "
+                                        + id
                         )
                 );
 
-        order.setStatus(newStatus);
+        order.setStatus(
+                newStatus
+        );
 
         Order updatedOrder =
-                orderRepository.save(order);
+                orderRepository.save(
+                        order
+                );
 
-        return convertToDTO(updatedOrder);
+        return convertToDTO(
+                updatedOrder
+        );
     }
 
     // ============================
@@ -80,7 +124,7 @@ public class OrderService {
      * Si cualquier paso falla, toda la operación se revierte.
      *
      * @return true si la orden fue procesada ahora;
-     *         false si ya estaba pagada.
+     * false si ya estaba pagada.
      */
     @Transactional
     public boolean confirmPayment(
@@ -93,10 +137,13 @@ public class OrderService {
         );
 
         Order order = orderRepository
-                .findByIdForUpdate(orderId)
+                .findByIdForUpdate(
+                        orderId
+                )
                 .orElseThrow(() ->
                         new EntityNotFoundException(
-                                "Orden no encontrada con ID: " + orderId
+                                "Orden no encontrada con ID: "
+                                        + orderId
                         )
                 );
 
@@ -104,7 +151,10 @@ public class OrderService {
          * Esta comprobación ocurre después de bloquear la orden.
          * Así evitamos que dos webhooks descuenten stock a la vez.
          */
-        if (order.getStatus() == OrderStatus.PAGADO) {
+        if (
+                order.getStatus()
+                        == OrderStatus.PAGADO
+        ) {
             log.info(
                     "La orden #{} ya estaba pagada. No se procesará nuevamente.",
                     orderId
@@ -122,23 +172,28 @@ public class OrderService {
                 order.getOrderItems();
 
         if (
-                orderItems == null ||
-                        orderItems.isEmpty()
+                orderItems == null
+                        || orderItems.isEmpty()
         ) {
             throw new IllegalStateException(
-                    "La orden #" + orderId +
-                            " no contiene productos."
+                    "La orden #"
+                            + orderId
+                            + " no contiene productos."
             );
         }
 
-        for (OrderItem item : orderItems) {
+        for (
+                OrderItem item
+                : orderItems
+        ) {
             validateOrderItem(
                     orderId,
                     item
             );
 
             Long productId =
-                    item.getProduct().getId();
+                    item.getProduct()
+                            .getId();
 
             Integer quantity =
                     item.getQuantity();
@@ -150,24 +205,33 @@ public class OrderService {
              * 0 = producto inexistente o stock insuficiente.
              */
             int affectedRows =
-                    productRepository.decreaseStock(
-                            productId,
-                            quantity
-                    );
+                    productRepository
+                            .decreaseStock(
+                                    productId,
+                                    quantity
+                            );
 
             if (affectedRows == 0) {
                 throw new IllegalStateException(
-                        "Stock insuficiente para el producto \"" +
-                                item.getProduct().getName() +
-                                "\"."
+                        "Stock insuficiente para el producto \""
+                                + item.getProduct()
+                                .getName()
+                                + "\"."
                 );
             }
         }
 
-        order.setPaymentId(mpPaymentId);
-        order.setStatus(OrderStatus.PAGADO);
+        order.setPaymentId(
+                mpPaymentId
+        );
 
-        orderRepository.save(order);
+        order.setStatus(
+                OrderStatus.PAGADO
+        );
+
+        orderRepository.save(
+                order
+        );
 
         log.info(
                 "Orden #{} confirmada con pago {}. Stock actualizado correctamente.",
@@ -193,8 +257,8 @@ public class OrderService {
         }
 
         if (
-                mpPaymentId == null ||
-                        mpPaymentId.isBlank()
+                mpPaymentId == null
+                        || mpPaymentId.isBlank()
         ) {
             throw new IllegalArgumentException(
                     "El ID del pago de Mercado Pago es obligatorio."
@@ -206,18 +270,27 @@ public class OrderService {
             Long orderId,
             String mpPaymentId
     ) {
-        orderRepository.findByPaymentId(mpPaymentId)
-                .ifPresent(existingOrder -> {
-                    if (
-                            !existingOrder.getId()
-                                    .equals(orderId)
-                    ) {
-                        throw new IllegalStateException(
-                                "El pago " + mpPaymentId +
-                                        " ya está asociado a otra orden."
-                        );
-                    }
-                });
+        orderRepository
+                .findByPaymentId(
+                        mpPaymentId
+                )
+                .ifPresent(
+                        existingOrder -> {
+                            if (
+                                    !existingOrder
+                                            .getId()
+                                            .equals(
+                                                    orderId
+                                            )
+                            ) {
+                                throw new IllegalStateException(
+                                        "El pago "
+                                                + mpPaymentId
+                                                + " ya está asociado a otra orden."
+                                );
+                            }
+                        }
+                );
     }
 
     private void validateOrderItem(
@@ -226,29 +299,33 @@ public class OrderService {
     ) {
         if (item == null) {
             throw new IllegalStateException(
-                    "La orden #" + orderId +
-                            " contiene un ítem inválido."
+                    "La orden #"
+                            + orderId
+                            + " contiene un ítem inválido."
             );
         }
 
         if (
-                item.getProduct() == null ||
-                        item.getProduct().getId() == null
+                item.getProduct() == null
+                        || item.getProduct()
+                        .getId() == null
         ) {
             throw new IllegalStateException(
-                    "La orden #" + orderId +
-                            " contiene un producto inexistente."
+                    "La orden #"
+                            + orderId
+                            + " contiene un producto inexistente."
             );
         }
 
         if (
-                item.getQuantity() == null ||
-                        item.getQuantity() <= 0
+                item.getQuantity() == null
+                        || item.getQuantity() <= 0
         ) {
             throw new IllegalStateException(
-                    "Cantidad inválida para el producto \"" +
-                            item.getProduct().getName() +
-                            "\"."
+                    "Cantidad inválida para el producto \""
+                            + item.getProduct()
+                            .getName()
+                            + "\"."
             );
         }
     }
@@ -264,17 +341,21 @@ public class OrderService {
                 "Cliente Desconocido";
 
         if (
-                order.getFullName() != null &&
-                        !order.getFullName().isBlank()
+                order.getFullName() != null
+                        && !order.getFullName()
+                        .isBlank()
         ) {
             customerName =
                     order.getFullName();
+
         } else if (
-                order.getUser() != null &&
-                        order.getUser().getFirstName() != null
+                order.getUser() != null
+                        && order.getUser()
+                        .getFirstName() != null
         ) {
             customerName =
-                    order.getUser().getFirstName();
+                    order.getUser()
+                            .getFirstName();
         }
 
         List<OrderItemDTO> itemDTOs =
@@ -282,13 +363,24 @@ public class OrderService {
                         ? List.of()
                         : order.getOrderItems()
                         .stream()
-                        .map(item ->
-                                new OrderItemDTO(
-                                        item.getProduct().getId(),
-                                        item.getProduct().getName(),
-                                        item.getQuantity(),
-                                        item.getPrice()
-                                )
+                        .map(
+                                item ->
+                                        new OrderItemDTO(
+                                                item.getProduct()
+                                                        .getId(),
+                                                item.getProduct()
+                                                        .getName(),
+                                                item.getQuantity(),
+                                                item.getPrice(),
+                                                new ProductSummaryDTO(
+                                                        item.getProduct()
+                                                                .getId(),
+                                                        item.getProduct()
+                                                                .getName(),
+                                                        item.getProduct()
+                                                                .getImageUrl()
+                                                )
+                                        )
                         )
                         .toList();
 
@@ -298,7 +390,8 @@ public class OrderService {
                 order.getEmail(),
                 order.getPhone(),
                 order.getTotal(),
-                order.getStatus().name(),
+                order.getStatus()
+                        .name(),
                 order.getCreatedAt(),
                 order.getPaymentId(),
                 order.getStreet(),

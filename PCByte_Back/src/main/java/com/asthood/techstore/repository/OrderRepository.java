@@ -29,6 +29,15 @@ public interface OrderRepository
             Long userId
     );
 
+    /*
+     * Recupera todas las órdenes de un cliente,
+     * mostrando primero las compras más recientes.
+     */
+    List<Order>
+    findByUserIdOrderByCreatedAtDesc(
+            Long userId
+    );
+
     long countByStatus(
             OrderStatus status
     );

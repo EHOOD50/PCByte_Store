@@ -54,6 +54,12 @@ interface AddressStepProps {
   onContinue?: () => void;
 
   mode?: "checkout" | "editor";
+
+  editorTitle?: string;
+  editorDescription?: string;
+  editorEyebrow?: string;
+  saveButtonLabel?: string;
+
   onSave?: () => void;
   isSaving?: boolean;
   saveError?: string | null;
@@ -87,6 +93,17 @@ export const AddressStep = ({
   onBack,
   onContinue,
   mode = "checkout",
+
+  editorTitle = "Agregar dirección",
+
+  editorDescription =
+    "Completa la información para guardar esta dirección en tu Cuenta PCByte.",
+
+  editorEyebrow = "Nueva dirección",
+
+  saveButtonLabel =
+    "Guardar dirección",
+
   onSave,
   isSaving = false,
   saveError = null,
@@ -214,8 +231,10 @@ export const AddressStep = ({
       return;
     }
 
-    const { name, value } =
-      event.target;
+    const {
+      name,
+      value,
+    } = event.target;
 
     if (name === "label") {
       setLocalLabel(value);
@@ -262,22 +281,22 @@ export const AddressStep = ({
           <MapPin size={21} />
         </div>
 
-        <div>
+        <div className="pr-12">
           <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#0066FF]">
             {editorMode
-              ? "Nueva dirección"
+              ? editorEyebrow
               : "Paso 2"}
           </p>
 
           <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
             {editorMode
-              ? "Agregar dirección"
+              ? editorTitle
               : "Dirección de despacho"}
           </h2>
 
           <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
             {editorMode
-              ? "Completa la información para guardar esta dirección en tu Cuenta PCByte."
+              ? editorDescription
               : "Indica dónde deseas recibir tu compra."}
           </p>
         </div>
@@ -353,7 +372,7 @@ export const AddressStep = ({
           ) : editorMode ? (
             <>
               <Save size={18} />
-              Guardar dirección
+              {saveButtonLabel}
             </>
           ) : (
             <>

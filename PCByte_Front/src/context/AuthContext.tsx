@@ -6,7 +6,9 @@ import {
   useState,
 } from "react";
 
-import { authService } from "../services/authService";
+import {
+  authService,
+} from "../services/authService";
 
 import type {
   AuthContextValue,
@@ -14,11 +16,16 @@ import type {
   RegisterRequest,
 } from "../types/auth";
 
-const USER_STORAGE_KEY = "user";
-const TOKEN_STORAGE_KEY = "auth_token";
+const USER_STORAGE_KEY =
+  "user";
+
+const TOKEN_STORAGE_KEY =
+  "auth_token";
 
 export const AuthContext =
-  createContext<AuthContextValue | undefined>(
+  createContext<
+    AuthContextValue | undefined
+  >(
     undefined
   );
 
@@ -29,18 +36,28 @@ interface AuthProviderProps {
 export const AuthProvider = ({
   children,
 }: AuthProviderProps) => {
-  const [user, setUser] =
-    useState<AuthUser | null>(null);
+  const [
+    user,
+    setUser,
+  ] =
+    useState<AuthUser | null>(
+      null
+    );
 
-  const [authToken, setAuthToken] =
-    useState<string | null>(null);
+  const [
+    authToken,
+    setAuthToken,
+  ] =
+    useState<string | null>(
+      null
+    );
 
-  const [isLoadingAuth, setIsLoadingAuth] =
+  const [
+    isLoadingAuth,
+    setIsLoadingAuth,
+  ] =
     useState(true);
 
-  /*
-   * Recupera la sesión almacenada al iniciar la aplicación.
-   */
   useEffect(() => {
     try {
       const storedUser =
@@ -68,6 +85,10 @@ export const AuthProvider = ({
       const isValidUser =
         typeof parsedUser.id ===
           "number" &&
+        typeof parsedUser.firstName ===
+          "string" &&
+        typeof parsedUser.lastName ===
+          "string" &&
         typeof parsedUser.email ===
           "string" &&
         parsedUser.status ===
@@ -78,8 +99,13 @@ export const AuthProvider = ({
         return;
       }
 
-      setUser(parsedUser);
-      setAuthToken(storedToken);
+      setUser(
+        parsedUser
+      );
+
+      setAuthToken(
+        storedToken
+      );
     } catch (error) {
       console.error(
         "No fue posible recuperar la sesión:",
@@ -88,66 +114,109 @@ export const AuthProvider = ({
 
       clearStoredSession();
     } finally {
-      setIsLoadingAuth(false);
+      setIsLoadingAuth(
+        false
+      );
     }
   }, []);
 
-  /*
-   * Inicia sesión y conserva los datos del cliente.
-   */
-  const login = useCallback(
-    async (
-      email: string,
-      password: string
-    ): Promise<AuthUser> => {
-      const session =
-        await authService.login(
-          email,
-          password
+  const login =
+    useCallback(
+      async (
+        email: string,
+        password: string
+      ): Promise<AuthUser> => {
+        const session =
+          await authService.login(
+            email,
+            password
+          );
+
+        localStorage.setItem(
+          USER_STORAGE_KEY,
+          JSON.stringify(
+            session.user
+          )
         );
 
-      localStorage.setItem(
-        USER_STORAGE_KEY,
-        JSON.stringify(
+        localStorage.setItem(
+          TOKEN_STORAGE_KEY,
+          session.authToken
+        );
+
+        setUser(
           session.user
-        )
-      );
+        );
 
-      localStorage.setItem(
-        TOKEN_STORAGE_KEY,
-        session.authToken
-      );
+        setAuthToken(
+          session.authToken
+        );
 
-      setUser(session.user);
-      setAuthToken(
-        session.authToken
-      );
+        return session.user;
+      },
+      []
+    );
 
-      return session.user;
-    },
-    []
-  );
+  const register =
+    useCallback(
+      async (
+        request: RegisterRequest
+      ): Promise<AuthUser> => {
+        return authService.register(
+          request
+        );
+      },
+      []
+    );
+
+  const updateUser =
+    useCallback(
+      (
+        updatedUser: AuthUser
+      ) => {
+        localStorage.setItem(
+          USER_STORAGE_KEY,
+          JSON.stringify(
+            updatedUser
+          )
+        );
+
+        setUser(
+          updatedUser
+        );
+      },
+      []
+    );
 
   /*
-   * Crea o convierte una cuenta.
+   * Actualiza únicamente el token de autenticación.
    *
-   * El registro no inicia sesión automáticamente.
-   * Después del registro, el cliente debe autenticarse.
+   * Los datos del usuario y la sesión activa
+   * permanecen intactos.
    */
-  const register = useCallback(
-    async (
-      request: RegisterRequest
-    ): Promise<AuthUser> => {
-      return authService.register(
-        request
-      );
-    },
-    []
-  );
+  const updateAuthToken =
+    useCallback(
+      (
+        newAuthToken: string
+      ) => {
+        if (!newAuthToken) {
+          throw new Error(
+            "El token de autenticación es obligatorio."
+          );
+        }
 
-  /*
-   * Finaliza la sesión actual.
-   */
+        localStorage.setItem(
+          TOKEN_STORAGE_KEY,
+          newAuthToken
+        );
+
+        setAuthToken(
+          newAuthToken
+        );
+      },
+      []
+    );
+
   const logout =
     useCallback(() => {
       clearStoredSession();
@@ -169,10 +238,16 @@ export const AuthProvider = ({
       () => ({
         user,
         authToken,
+
         isAuthenticated,
         isLoadingAuth,
+
         login,
         register,
+
+        updateUser,
+        updateAuthToken,
+
         logout,
       }),
       [
@@ -182,25 +257,30 @@ export const AuthProvider = ({
         isLoadingAuth,
         login,
         register,
+        updateUser,
+        updateAuthToken,
         logout,
       ]
     );
 
   return (
     <AuthContext.Provider
-      value={contextValue}
+      value={
+        contextValue
+      }
     >
       {children}
     </AuthContext.Provider>
   );
 };
 
-const clearStoredSession = () => {
-  localStorage.removeItem(
-    USER_STORAGE_KEY
-  );
+const clearStoredSession =
+  () => {
+    localStorage.removeItem(
+      USER_STORAGE_KEY
+    );
 
-  localStorage.removeItem(
-    TOKEN_STORAGE_KEY
-  );
-};
+    localStorage.removeItem(
+      TOKEN_STORAGE_KEY
+    );
+  };

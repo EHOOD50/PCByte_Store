@@ -11,7 +11,26 @@ import java.util.Optional;
 public interface AddressRepository
         extends JpaRepository<Address, Long> {
 
-    List<Address> findByUserIdOrderByIsDefaultDescIdAsc(Long userId);
+    /*
+     * Mantiene un orden estable por ID.
+     *
+     * Cambiar la dirección principal no modifica
+     * la posición visual de las direcciones.
+     */
+    List<Address> findByUserIdOrderByIdAsc(
+            Long userId
+    );
 
-    Optional<Address> findByUserIdAndIsDefaultTrue(Long userId);
+    Optional<Address> findByUserIdAndIsDefaultTrue(
+            Long userId
+    );
+
+    Optional<Address> findByIdAndUserId(
+            Long addressId,
+            Long userId
+    );
+
+    Optional<Address> findFirstByUserIdOrderByIdAsc(
+            Long userId
+    );
 }

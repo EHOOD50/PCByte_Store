@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-import { getUserAddresses } from "../api/addressApi";
+import {
+  getUserAddresses,
+} from "../api/addressApi";
 
-import type { Address } from "../types/types";
+import type {
+  Address,
+} from "../types/types";
 
 export function useAddresses(
   userId?: number
@@ -24,37 +32,63 @@ export function useAddresses(
     null
   );
 
+  /*
+   * Cuando silent es true, actualiza las direcciones
+   * sin reemplazar la cuadrícula por el panel de carga.
+   *
+   * Esto evita saltos visuales después de crear,
+   * editar, eliminar o cambiar la predeterminada.
+   */
   const reloadAddresses =
-    useCallback(async () => {
-      if (!userId) {
-        setAddresses([]);
-        return;
-      }
+    useCallback(
+      async (
+        silent = false
+      ) => {
+        if (!userId) {
+          setAddresses([]);
+          setLoading(false);
+          setError(null);
+          return;
+        }
 
-      try {
-        setLoading(true);
-        setError(null);
+        try {
+          if (!silent) {
+            setLoading(true);
+          }
 
-        const response =
-          await getUserAddresses(
-            userId
+          setError(null);
+
+          const response =
+            await getUserAddresses(
+              userId
+            );
+
+          setAddresses(response);
+        } catch (err) {
+          console.error(
+            "No fue posible obtener las direcciones:",
+            err
           );
 
-        setAddresses(response);
-      } catch (err) {
-        console.error(err);
-
-        setError(
-          "No fue posible obtener las direcciones."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }, [userId]);
+          setError(
+            "No fue posible obtener las direcciones."
+          );
+        } finally {
+          if (!silent) {
+            setLoading(false);
+          }
+        }
+      },
+      [
+        userId,
+      ]
+    );
 
   useEffect(() => {
-    reloadAddresses();
-  }, [reloadAddresses]);
+    void reloadAddresses();
+  }, [
+    reloadAddresses,
+  ]);
 
   return {
     addresses,
