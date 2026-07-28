@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -18,8 +19,13 @@ import type {
   Product,
 } from "./types/types";
 
-import { useProducts } from "./hooks/useProducts";
-import { useAuth } from "./hooks/useAuth";
+import {
+  useProducts,
+} from "./hooks/useProducts";
+
+import {
+  useAuth,
+} from "./hooks/useAuth";
 
 // Componentes
 import Navbar from "./components/layout/Navbar";
@@ -33,9 +39,13 @@ import Home from "./pages/Home";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutSelection from "./pages/CheckoutSelection";
-import { CheckoutPage } from "./pages/ChecKoutPage";
+import {
+  CheckoutPage,
+} from "./pages/ChecKoutPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import EmailVerificationPendingPage from "./pages/EmailVerificationPendingPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 // Módulo cliente
 import {
@@ -93,7 +103,9 @@ function App() {
           savedCart
         );
 
-      return Array.isArray(parsed)
+      return Array.isArray(
+        parsed
+      )
         ? parsed
         : [];
     } catch {
@@ -131,12 +143,9 @@ function App() {
     setCurrentPage,
   ] = useState(1);
 
-  const productsPerPage = 12;
+  const productsPerPage =
+    12;
 
-  /*
-   * Corrige la posición inicial del catálogo
-   * cuando se entra nuevamente a /productos.
-   */
   useLayoutEffect(() => {
     if (
       location.pathname !==
@@ -145,15 +154,19 @@ function App() {
       return;
     }
 
-    const resetScroll = () => {
-      window.scrollTo(0, 0);
+    const resetScroll =
+      () => {
+        window.scrollTo(
+          0,
+          0
+        );
 
-      document.documentElement.scrollTop =
-        0;
+        document.documentElement.scrollTop =
+          0;
 
-      document.body.scrollTop =
-        0;
-    };
+        document.body.scrollTop =
+          0;
+      };
 
     resetScroll();
 
@@ -171,10 +184,6 @@ function App() {
     location.pathname,
   ]);
 
-  /*
-   * Reinicia la paginación cuando cambia
-   * un filtro, búsqueda u ordenamiento.
-   */
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -183,14 +192,12 @@ function App() {
     sortBy,
   ]);
 
-  /*
-   * Mantiene el carrito almacenado
-   * en el navegador.
-   */
   useEffect(() => {
     localStorage.setItem(
       CART_KEY,
-      JSON.stringify(cart)
+      JSON.stringify(
+        cart
+      )
     );
   }, [
     cart,
@@ -203,6 +210,8 @@ function App() {
     "/success",
     "/login",
     "/register",
+    "/verificacion-pendiente",
+    "/verificar-cuenta",
   ];
 
   const shouldHideNavbar =
@@ -219,6 +228,8 @@ function App() {
     "/success",
     "/login",
     "/register",
+    "/verificacion-pendiente",
+    "/verificar-cuenta",
   ];
 
   const shouldHideWhatsApp =
@@ -331,29 +342,44 @@ function App() {
     );
   };
 
-  const clearCart = () => {
-    setCart([]);
-
-    localStorage.removeItem(
-      CART_KEY
-    );
-  };
-
   /*
-   * Flujo oficial de compra:
+   * Mantiene una referencia estable entre renders.
    *
-   * Autenticado:
-   * carrito -> checkout
-   *
-   * No autenticado:
-   * carrito -> checkout-selection
+   * Esto evita que SuccessPage vuelva a ejecutar
+   * continuamente su useEffect después de confirmar
+   * una compra.
    */
+  const clearCart =
+    useCallback(() => {
+      setCart(
+        (currentCart) => {
+          if (
+            currentCart.length ===
+            0
+          ) {
+            return currentCart;
+          }
+
+          return [];
+        }
+      );
+
+      localStorage.removeItem(
+        CART_KEY
+      );
+    }, []);
+
   const handleCheckoutRedirection =
     () => {
       setIsCartOpen(false);
 
-      if (isAuthenticated) {
-        navigate("/checkout");
+      if (
+        isAuthenticated
+      ) {
+        navigate(
+          "/checkout"
+        );
+
         return;
       }
 
@@ -362,23 +388,24 @@ function App() {
       );
     };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout =
+    () => {
+      logout();
 
-    sessionStorage.removeItem(
-      CHECKOUT_SESSION_KEY
-    );
+      sessionStorage.removeItem(
+        CHECKOUT_SESSION_KEY
+      );
 
-    localStorage.removeItem(
-      PENDING_ORDER_KEY
-    );
+      localStorage.removeItem(
+        PENDING_ORDER_KEY
+      );
 
-    setIsCartOpen(false);
+      setIsCartOpen(false);
 
-    navigate(
-      "/productos"
-    );
-  };
+      navigate(
+        "/productos"
+      );
+    };
 
   const handleSearchChange = (
     value: string
@@ -388,7 +415,9 @@ function App() {
     if (
       value.trim() !== ""
     ) {
-      setFilter("TODOS");
+      setFilter(
+        "TODOS"
+      );
     }
   };
 
@@ -416,7 +445,8 @@ function App() {
               product.name
                 .toLowerCase()
                 .includes(
-                  searchTerm.toLowerCase()
+                  searchTerm
+                    .toLowerCase()
                 );
 
             const categoryName =
@@ -426,9 +456,12 @@ function App() {
               "";
 
             const matchesCategory =
-              filter === "TODOS" ||
-              categoryName.toUpperCase() ===
-                filter.toUpperCase();
+              filter ===
+                "TODOS" ||
+              categoryName
+                .toUpperCase() ===
+                filter
+                  .toUpperCase();
 
             return (
               matchesSearch &&
@@ -520,7 +553,9 @@ function App() {
       0
     );
 
-  if (isLoadingAuth) {
+  if (
+    isLoadingAuth
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-white">
         <p className="text-xs font-black uppercase tracking-[0.25em] text-[#97cf00]">
@@ -534,7 +569,9 @@ function App() {
     return (
       <AdminDashboard
         onLogout={() =>
-          setIsAdmin(false)
+          setIsAdmin(
+            false
+          )
         }
       />
     );
@@ -561,10 +598,14 @@ function App() {
             handleSearchChange
           }
           onOpenCart={() =>
-            setIsCartOpen(true)
+            setIsCartOpen(
+              true
+            )
           }
           onOpenAdmin={() =>
-            setIsAdmin(true)
+            setIsAdmin(
+              true
+            )
           }
           onGoHome={() =>
             navigate("/")
@@ -617,7 +658,7 @@ function App() {
         />
       )}
 
-      <div className="flex min-w-0 flex-1 w-full">
+      <div className="flex min-w-0 w-full flex-1">
         <Routes>
           <Route
             path="/"
@@ -768,6 +809,20 @@ function App() {
           />
 
           <Route
+            path="/verificacion-pendiente"
+            element={
+              <EmailVerificationPendingPage />
+            }
+          />
+
+          <Route
+            path="/verificar-cuenta"
+            element={
+              <VerifyEmailPage />
+            }
+          />
+
+          <Route
             path="/account"
             element={
               isAuthenticated ? (
@@ -883,7 +938,9 @@ function App() {
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() =>
-              setIsCartOpen(false)
+              setIsCartOpen(
+                false
+              )
             }
           />
 
@@ -893,7 +950,9 @@ function App() {
                 cart
               }
               onClose={() =>
-                setIsCartOpen(false)
+                setIsCartOpen(
+                  false
+                )
               }
               onRemove={
                 removeItem

@@ -11,7 +11,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+
     show-sql: true
+
     properties:
       hibernate:
         format_sql: true
@@ -20,14 +22,48 @@ spring:
   flyway:
     enabled: true
 
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+
+    properties:
+      mail:
+        smtp:
+          auth: true
+
+          starttls:
+            enable: true
+            required: false
+
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 mercadopago:
   access:
     token: ${MP_ACCESS_TOKEN}
 
-# 🚩 CORRECCIÓN APLICADA: Un solo 'app' y variables alineadas
 app:
   base-url: https://unrarefied-unpervasive-pandora.ngrok-free.dev
+
   frontend-url: http://192.168.100.226:5173
+
+  verification:
+    max-requests-per-hour: 5
+    resend-cooldown-seconds: 60
+
+    email-verification-expiration-hours: 24
+    guest-checkout-expiration-minutes: 10
+    guest-account-conversion-expiration-hours: 1
+    password-reset-expiration-minutes: 30
+
+  mail:
+    from-address: no-reply@pcbyte.cl
+    from-name: PCByte Store
+    reply-to: contacto@pcbyte.cl
+
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
   api-key: ${CLOUDINARY_API_KEY}

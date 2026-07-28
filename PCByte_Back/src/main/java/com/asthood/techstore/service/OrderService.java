@@ -24,9 +24,9 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
 
-    // ============================
+    // =========================================================
     // LISTAR TODAS LAS ÓRDENES
-    // ============================
+    // =========================================================
 
     @Transactional(readOnly = true)
     public List<OrderResponseDTO> getAllOrders() {
@@ -41,11 +41,11 @@ public class OrderService {
                 .toList();
     }
 
-    // ============================
+    // =========================================================
     // LISTAR ÓRDENES DEL CLIENTE
-    // ============================
+    // =========================================================
 
-    /**
+    /*
      * Recupera las órdenes asociadas a un usuario,
      * mostrando primero las compras más recientes.
      */
@@ -53,11 +53,9 @@ public class OrderService {
     public List<OrderResponseDTO> getOrdersByUser(
             Long userId
     ) {
-        if (userId == null) {
-            throw new IllegalArgumentException(
-                    "El ID del usuario es obligatorio."
-            );
-        }
+        validateUserId(
+                userId
+        );
 
         log.info(
                 "Recuperando órdenes del usuario #{}",
@@ -73,23 +71,121 @@ public class OrderService {
                 .toList();
     }
 
-    // ============================
+    // =========================================================
+    // OBTENER UNA ORDEN SEGURA POR ID
+    // =========================================================
+
+    /*
+     * Devuelve una orden transformada a DTO.
+     *
+     * Nunca expone directamente:
+     *
+     * - User
+     * - password
+     * - direcciones actuales del usuario
+     * - entidades JPA completas
+     */
+    @Transactional(readOnly = true)
+    public OrderResponseDTO getOrderById(
+            Long orderId
+    ) {
+        validateOrderId(
+                orderId
+        );
+
+        log.info(
+                "Recuperando resumen seguro de la orden #{}",
+                orderId
+        );
+
+        Order order =
+                orderRepository
+                        .findById(
+                                orderId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "Orden no encontrada con ID: "
+                                                        + orderId
+                                        )
+                        );
+
+        return convertToDTO(
+                order
+        );
+    }
+
+    // =========================================================
+    // OBTENER ÚLTIMA ORDEN DEL CLIENTE
+    // =========================================================
+
+    /*
+     * Devuelve la última orden del usuario utilizando
+     * el mismo DTO seguro.
+     */
+    @Transactional(readOnly = true)
+    public OrderResponseDTO getLatestOrderByUserId(
+            Long userId
+    ) {
+        validateUserId(
+                userId
+        );
+
+        log.info(
+                "Recuperando última orden del usuario #{}",
+                userId
+        );
+
+        Order order =
+                orderRepository
+                        .findFirstByUserIdOrderByIdDesc(
+                                userId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "No se encontraron órdenes para el usuario con ID: "
+                                                        + userId
+                                        )
+                        );
+
+        return convertToDTO(
+                order
+        );
+    }
+
+    // =========================================================
     // ACTUALIZAR ESTADO MANUAL
-    // ============================
+    // =========================================================
 
     @Transactional
     public OrderResponseDTO updateOrderStatus(
             Long id,
             OrderStatus newStatus
     ) {
-        Order order = orderRepository
-                .findById(id)
-                .orElseThrow(() ->
-                        new EntityNotFoundException(
-                                "Orden no encontrada con ID: "
-                                        + id
+        validateOrderId(
+                id
+        );
+
+        if (newStatus == null) {
+            throw new IllegalArgumentException(
+                    "El nuevo estado de la orden es obligatorio."
+            );
+        }
+
+        Order order =
+                orderRepository
+                        .findById(
+                                id
                         )
-                );
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "Orden no encontrada con ID: "
+                                                        + id
+                                        )
+                        );
 
         order.setStatus(
                 newStatus
@@ -105,25 +201,26 @@ public class OrderService {
         );
     }
 
-    // ============================
+    // =========================================================
     // CONFIRMAR PAGO
-    // ============================
+    // =========================================================
 
-    /**
-     * Confirma una compra en una sola transacción.
+    /*
+     * Confirma una compra en una única transacción.
      *
      * Flujo:
+     *
      * 1. Bloquea la orden.
      * 2. Evita procesarla más de una vez.
      * 3. Verifica que el paymentId no pertenezca a otra orden.
-     * 4. Valida los productos y cantidades.
+     * 4. Valida productos y cantidades.
      * 5. Descuenta stock de forma atómica.
      * 6. Guarda el paymentId.
-     * 7. Marca la orden como PAGADO.
+     * 7. Cambia el estado a PAGADO.
      *
      * Si cualquier paso falla, toda la operación se revierte.
      *
-     * @return true si la orden fue procesada ahora;
+     * @return true si la orden fue procesada en esta llamada;
      * false si ya estaba pagada.
      */
     @Transactional
@@ -136,24 +233,29 @@ public class OrderService {
                 mpPaymentId
         );
 
-        Order order = orderRepository
-                .findByIdForUpdate(
-                        orderId
-                )
-                .orElseThrow(() ->
-                        new EntityNotFoundException(
-                                "Orden no encontrada con ID: "
-                                        + orderId
+        Order order =
+                orderRepository
+                        .findByIdForUpdate(
+                                orderId
                         )
-                );
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "Orden no encontrada con ID: "
+                                                        + orderId
+                                        )
+                        );
 
         /*
-         * Esta comprobación ocurre después de bloquear la orden.
-         * Así evitamos que dos webhooks descuenten stock a la vez.
+         * Esta comprobación ocurre después de bloquear
+         * la orden.
+         *
+         * Así evitamos que el retorno y el webhook
+         * descuenten stock simultáneamente.
          */
         if (
-                order.getStatus()
-                        == OrderStatus.PAGADO
+                order.getStatus() ==
+                        OrderStatus.PAGADO
         ) {
             log.info(
                     "La orden #{} ya estaba pagada. No se procesará nuevamente.",
@@ -172,8 +274,8 @@ public class OrderService {
                 order.getOrderItems();
 
         if (
-                orderItems == null
-                        || orderItems.isEmpty()
+                orderItems == null ||
+                        orderItems.isEmpty()
         ) {
             throw new IllegalStateException(
                     "La orden #"
@@ -183,8 +285,8 @@ public class OrderService {
         }
 
         for (
-                OrderItem item
-                : orderItems
+                OrderItem item :
+                orderItems
         ) {
             validateOrderItem(
                     orderId,
@@ -222,7 +324,7 @@ public class OrderService {
         }
 
         order.setPaymentId(
-                mpPaymentId
+                mpPaymentId.trim()
         );
 
         order.setStatus(
@@ -242,13 +344,12 @@ public class OrderService {
         return true;
     }
 
-    // ============================
-    // MÉTODOS AUXILIARES
-    // ============================
+    // =========================================================
+    // VALIDACIONES
+    // =========================================================
 
-    private void validatePaymentData(
-            Long orderId,
-            String mpPaymentId
+    private void validateOrderId(
+            Long orderId
     ) {
         if (orderId == null) {
             throw new IllegalArgumentException(
@@ -256,9 +357,40 @@ public class OrderService {
             );
         }
 
+        if (orderId <= 0) {
+            throw new IllegalArgumentException(
+                    "El ID de la orden debe ser mayor que cero."
+            );
+        }
+    }
+
+    private void validateUserId(
+            Long userId
+    ) {
+        if (userId == null) {
+            throw new IllegalArgumentException(
+                    "El ID del usuario es obligatorio."
+            );
+        }
+
+        if (userId <= 0) {
+            throw new IllegalArgumentException(
+                    "El ID del usuario debe ser mayor que cero."
+            );
+        }
+    }
+
+    private void validatePaymentData(
+            Long orderId,
+            String mpPaymentId
+    ) {
+        validateOrderId(
+                orderId
+        );
+
         if (
-                mpPaymentId == null
-                        || mpPaymentId.isBlank()
+                mpPaymentId == null ||
+                        mpPaymentId.isBlank()
         ) {
             throw new IllegalArgumentException(
                     "El ID del pago de Mercado Pago es obligatorio."
@@ -272,7 +404,7 @@ public class OrderService {
     ) {
         orderRepository
                 .findByPaymentId(
-                        mpPaymentId
+                        mpPaymentId.trim()
                 )
                 .ifPresent(
                         existingOrder -> {
@@ -306,9 +438,9 @@ public class OrderService {
         }
 
         if (
-                item.getProduct() == null
-                        || item.getProduct()
-                        .getId() == null
+                item.getProduct() == null ||
+                        item.getProduct()
+                                .getId() == null
         ) {
             throw new IllegalStateException(
                     "La orden #"
@@ -318,8 +450,8 @@ public class OrderService {
         }
 
         if (
-                item.getQuantity() == null
-                        || item.getQuantity() <= 0
+                item.getQuantity() == null ||
+                        item.getQuantity() <= 0
         ) {
             throw new IllegalStateException(
                     "Cantidad inválida para el producto \""
@@ -328,34 +460,52 @@ public class OrderService {
                             + "\"."
             );
         }
+
+        if (
+                item.getPrice() == null ||
+                        item.getPrice()
+                                .signum() < 0
+        ) {
+            throw new IllegalStateException(
+                    "Precio inválido para el producto \""
+                            + item.getProduct()
+                            .getName()
+                            + "\"."
+            );
+        }
     }
 
-    // ============================
-    // CONVERSIÓN A DTO
-    // ============================
+    // =========================================================
+    // CONVERSIÓN SEGURA A DTO
+    // =========================================================
 
     private OrderResponseDTO convertToDTO(
             Order order
     ) {
         String customerName =
-                "Cliente Desconocido";
+                "Cliente desconocido";
 
         if (
-                order.getFullName() != null
-                        && !order.getFullName()
-                        .isBlank()
+                order.getFullName() != null &&
+                        !order.getFullName()
+                                .isBlank()
         ) {
             customerName =
-                    order.getFullName();
+                    order.getFullName()
+                            .trim();
 
         } else if (
-                order.getUser() != null
-                        && order.getUser()
-                        .getFirstName() != null
+                order.getUser() != null &&
+                        order.getUser()
+                                .getFirstName() != null &&
+                        !order.getUser()
+                                .getFirstName()
+                                .isBlank()
         ) {
             customerName =
                     order.getUser()
-                            .getFirstName();
+                            .getFirstName()
+                            .trim();
         }
 
         List<OrderItemDTO> itemDTOs =
