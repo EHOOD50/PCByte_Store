@@ -1,8 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+
 import {
   AlertCircle,
   ArrowRight,
@@ -35,35 +41,69 @@ type PageStatus =
   | "success"
   | "error";
 
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 3000;
+const MAX_RETRIES =
+  5;
+
+const RETRY_DELAY =
+  3000;
 
 const CHECKOUT_SESSION_KEY =
   "pcbyte_checkout_session_v1";
-  
+
 const PENDING_ORDER_KEY =
   "pcbyte_pending_order_v1";
 
-const SuccessPage: React.FC<SuccessPageProps> = ({
+const SuccessPage: React.FC<
+  SuccessPageProps
+> = ({
   clearCart,
 }) => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const [
+    searchParams,
+  ] = useSearchParams();
 
-  const [order, setOrder] =
-    useState<PaymentOrder | null>(null);
+  const navigate =
+    useNavigate();
 
-  const [pageStatus, setPageStatus] =
-    useState<PageStatus>("loading");
+  const [
+    order,
+    setOrder,
+  ] =
+    useState<PaymentOrder | null>(
+      null
+    );
 
-  const [retryCount, setRetryCount] =
+  const [
+    pageStatus,
+    setPageStatus,
+  ] =
+    useState<PageStatus>(
+      "loading"
+    );
+
+  const [
+    retryCount,
+    setRetryCount,
+  ] =
     useState(0);
 
-  const [orderCopied, setOrderCopied] =
+  const [
+    orderCopied,
+    setOrderCopied,
+  ] =
     useState(false);
 
+  /*
+   * Evita ejecutar varias veces las acciones
+   * posteriores a una compra confirmada.
+   */
+  const paymentCompletionHandled =
+    useRef(false);
+
   const externalReference =
-    searchParams.get("external_reference");
+    searchParams.get(
+      "external_reference"
+    );
 
   const orderNumber =
     order?.id ??
@@ -72,79 +112,140 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
 
   useEffect(() => {
     let retryTimer:
-      | ReturnType<typeof setTimeout>
+      | ReturnType<
+          typeof setTimeout
+        >
       | undefined;
 
-    const fetchOrder = async () => {
-      if (!externalReference) {
-        setPageStatus("error");
-        return;
-      }
+    /*
+     * Una vez confirmada la compra, este efecto
+     * no necesita volver a consultar la orden.
+     */
+    if (
+      paymentCompletionHandled.current
+    ) {
+      return;
+    }
 
-      try {
-        const response =
-          await adminApi.get<PaymentOrder>(
-            `/payments/order/${externalReference}`
+    const fetchOrder =
+      async () => {
+        if (
+          !externalReference
+        ) {
+          setPageStatus(
+            "error"
           );
 
-        const fetchedOrder = response.data;
-
-        setOrder(fetchedOrder);
-
-        if (fetchedOrder.status === "PAGADO") {
-  localStorage.removeItem(
-    PENDING_ORDER_KEY
-  );
-
-  sessionStorage.removeItem(
-    CHECKOUT_SESSION_KEY
-  );
-
-  clearCart();
-  setPageStatus("success");
-  return;
-}
-
-        if (retryCount >= MAX_RETRIES) {
-          setPageStatus("error");
           return;
         }
 
-        retryTimer = window.setTimeout(
-          () => {
-            setRetryCount(
-              (previous) => previous + 1
+        try {
+          const response =
+            await adminApi.get<PaymentOrder>(
+              `/payments/order/${externalReference}`
             );
-          },
-          RETRY_DELAY
-        );
-      } catch (error) {
-        console.error(
-          "Error al consultar el pedido:",
+
+          const fetchedOrder =
+            response.data;
+
+          setOrder(
+            fetchedOrder
+          );
+
+          const normalizedStatus =
+            fetchedOrder.status
+              ?.trim()
+              .toUpperCase();
+
+          if (
+            normalizedStatus ===
+            "PAGADO"
+          ) {
+            /*
+             * Marcamos primero la operación como atendida
+             * para impedir nuevas consultas durante los
+             * renders provocados por clearCart().
+             */
+            paymentCompletionHandled.current =
+              true;
+
+            localStorage.removeItem(
+              PENDING_ORDER_KEY
+            );
+
+            sessionStorage.removeItem(
+              CHECKOUT_SESSION_KEY
+            );
+
+            clearCart();
+
+            setPageStatus(
+              "success"
+            );
+
+            return;
+          }
+
+          if (
+            retryCount >=
+            MAX_RETRIES
+          ) {
+            setPageStatus(
+              "error"
+            );
+
+            return;
+          }
+
+          retryTimer =
+            window.setTimeout(
+              () => {
+                setRetryCount(
+                  (previous) =>
+                    previous + 1
+                );
+              },
+              RETRY_DELAY
+            );
+        } catch (
           error
-        );
+        ) {
+          console.error(
+            "Error al consultar el pedido:",
+            error
+          );
 
-        if (retryCount >= MAX_RETRIES) {
-          setPageStatus("error");
-          return;
-        }
-
-        retryTimer = window.setTimeout(
-          () => {
-            setRetryCount(
-              (previous) => previous + 1
+          if (
+            retryCount >=
+            MAX_RETRIES
+          ) {
+            setPageStatus(
+              "error"
             );
-          },
-          RETRY_DELAY
-        );
-      }
-    };
+
+            return;
+          }
+
+          retryTimer =
+            window.setTimeout(
+              () => {
+                setRetryCount(
+                  (previous) =>
+                    previous + 1
+                );
+              },
+              RETRY_DELAY
+            );
+        }
+      };
 
     void fetchOrder();
 
     return () => {
       if (retryTimer) {
-        window.clearTimeout(retryTimer);
+        window.clearTimeout(
+          retryTimer
+        );
       }
     };
   }, [
@@ -158,31 +259,55 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
       ?.trim()
       .split(/\s+/)[0];
 
-  const handleRetry = () => {
-    setPageStatus("loading");
-    setRetryCount(0);
-  };
+  const handleRetry =
+    () => {
+      paymentCompletionHandled.current =
+        false;
 
-  const handleCopyOrder = async () => {
-    try {
-      await navigator.clipboard.writeText(
-        String(orderNumber)
+      setPageStatus(
+        "loading"
       );
 
-      setOrderCopied(true);
+      setRetryCount(
+        0
+      );
+    };
 
-      window.setTimeout(() => {
-        setOrderCopied(false);
-      }, 2000);
-    } catch (error) {
-      console.error(
-        "No se pudo copiar el número de orden:",
+  const handleCopyOrder =
+    async () => {
+      try {
+        await navigator.clipboard.writeText(
+          String(
+            orderNumber
+          )
+        );
+
+        setOrderCopied(
+          true
+        );
+
+        window.setTimeout(
+          () => {
+            setOrderCopied(
+              false
+            );
+          },
+          2000
+        );
+      } catch (
         error
-      );
-    }
-  };
+      ) {
+        console.error(
+          "No se pudo copiar el número de orden:",
+          error
+        );
+      }
+    };
 
-  if (pageStatus === "loading") {
+  if (
+    pageStatus ===
+    "loading"
+  ) {
     return (
       <main className="flex min-h-screen w-full items-center justify-center bg-white px-5 py-10">
         <section className="w-full max-w-md text-center">
@@ -208,13 +333,14 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
           </h1>
 
           <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-slate-500">
-            Espera unos segundos mientras
-            confirmamos la operación con
-            Mercado Pago.
+            Espera unos segundos mientras confirmamos la operación con Mercado Pago.
           </p>
 
           <div className="mt-7 flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
-            <ShieldCheck size={16} />
+            <ShieldCheck
+              size={16}
+            />
+
             Proceso protegido
           </div>
         </section>
@@ -222,7 +348,10 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
     );
   }
 
-  if (pageStatus === "error") {
+  if (
+    pageStatus ===
+    "error"
+  ) {
     return (
       <main className="flex min-h-screen w-full items-center justify-center bg-white px-5 py-10">
         <section className="w-full max-w-lg text-center">
@@ -248,9 +377,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
           </h1>
 
           <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-500">
-            Tu carrito permanece intacto.
-            Puedes volver a consultar el pago
-            o regresar al catálogo.
+            Tu carrito permanece intacto. Puedes volver a consultar el pago o regresar al catálogo.
           </p>
 
           {externalReference && (
@@ -268,22 +395,32 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             <button
               type="button"
-              onClick={handleRetry}
+              onClick={
+                handleRetry
+              }
               className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-4 text-xs font-black uppercase text-white transition hover:bg-amber-600"
             >
-              <Clock3 size={16} />
+              <Clock3
+                size={16}
+              />
+
               Verificar nuevamente
             </button>
 
             <button
               type="button"
               onClick={() =>
-                navigate("/productos")
+                navigate(
+                  "/productos"
+                )
               }
               className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 py-4 text-xs font-black uppercase text-slate-700 transition hover:bg-slate-50"
             >
               Ir al catálogo
-              <ArrowRight size={16} />
+
+              <ArrowRight
+                size={16}
+              />
             </button>
           </div>
         </section>
@@ -323,9 +460,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-slate-500 sm:text-base">
-            Tu pedido fue confirmado
-            correctamente y ya comenzó a ser
-            procesado por nuestro equipo.
+            Tu pedido fue confirmado correctamente y ya comenzó a ser procesado por nuestro equipo.
           </p>
         </section>
 
@@ -341,7 +476,11 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
 
             <div className="mt-8">
               <OrderStep
-                icon={<Check size={17} />}
+                icon={
+                  <Check
+                    size={17}
+                  />
+                }
                 title="Pago confirmado"
                 description="La transacción fue validada por Mercado Pago."
                 completed
@@ -350,7 +489,9 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
 
               <OrderStep
                 icon={
-                  <PackageCheck size={17} />
+                  <PackageCheck
+                    size={17}
+                  />
                 }
                 title="Pedido recibido"
                 description="Tu compra quedó registrada correctamente."
@@ -360,7 +501,9 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
 
               <OrderStep
                 icon={
-                  <PackageCheck size={17} />
+                  <PackageCheck
+                    size={17}
+                  />
                 }
                 title="Preparando productos"
                 description="Nuestro equipo revisará y preparará tu pedido."
@@ -368,14 +511,22 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
               />
 
               <OrderStep
-                icon={<Truck size={17} />}
+                icon={
+                  <Truck
+                    size={17}
+                  />
+                }
                 title="Despacho"
                 description="Te informaremos cuando el pedido sea enviado."
                 showLine
               />
 
               <OrderStep
-                icon={<Check size={17} />}
+                icon={
+                  <Check
+                    size={17}
+                  />
+                }
                 title="Entregado"
                 description="La compra llegará a la dirección registrada."
               />
@@ -398,10 +549,15 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
                 action={
                   <button
                     type="button"
-                    onClick={handleCopyOrder}
+                    onClick={
+                      handleCopyOrder
+                    }
                     className="flex items-center gap-1.5 text-[10px] font-black uppercase text-[#0066FF] transition hover:text-[#004fc5]"
                   >
-                    <Copy size={14} />
+                    <Copy
+                      size={14}
+                    />
+
                     {orderCopied
                       ? "Copiado"
                       : "Copiar"}
@@ -412,7 +568,8 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
               <SummaryRow
                 label="Estado"
                 value={
-                  order?.status ?? "PAGADO"
+                  order?.status ??
+                  "PAGADO"
                 }
                 highlighted
               />
@@ -429,11 +586,17 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
               </h3>
 
               <div className="mt-5 space-y-4">
-                <NextStep text="Revisaremos los datos de tu pedido." />
+                <NextStep
+                  text="Revisaremos los datos de tu pedido."
+                />
 
-                <NextStep text="Prepararemos cuidadosamente tus productos." />
+                <NextStep
+                  text="Prepararemos cuidadosamente tus productos."
+                />
 
-                <NextStep text="Te informaremos cuando el pedido cambie de estado." />
+                <NextStep
+                  text="Te informaremos cuando el pedido cambie de estado."
+                />
               </div>
             </div>
           </aside>
@@ -443,12 +606,17 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
           <button
             type="button"
             onClick={() =>
-              navigate("/productos")
+              navigate(
+                "/productos"
+              )
             }
             className="inline-flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-8 py-4 text-sm font-black uppercase text-white transition hover:bg-[#0055d4] sm:w-auto sm:min-w-80"
           >
             Seguir comprando
-            <ArrowRight size={18} />
+
+            <ArrowRight
+              size={18}
+            />
           </button>
         </section>
 
@@ -458,9 +626,7 @@ const SuccessPage: React.FC<SuccessPageProps> = ({
           </p>
 
           <p className="mt-2 text-xs leading-6 text-slate-400">
-            Comunícate con nuestro equipo de
-            atención y ten a mano tu número de
-            orden.
+            Comunícate con nuestro equipo de atención y ten a mano tu número de orden.
           </p>
 
           <p className="mt-5 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
@@ -480,7 +646,9 @@ interface OrderStepProps {
   showLine?: boolean;
 }
 
-const OrderStep: React.FC<OrderStepProps> = ({
+const OrderStep: React.FC<
+  OrderStepProps
+> = ({
   icon,
   title,
   description,
@@ -529,7 +697,9 @@ interface SummaryRowProps {
   action?: React.ReactNode;
 }
 
-const SummaryRow: React.FC<SummaryRowProps> = ({
+const SummaryRow: React.FC<
+  SummaryRowProps
+> = ({
   label,
   value,
   highlighted = false,
@@ -562,7 +732,9 @@ interface NextStepProps {
   text: string;
 }
 
-const NextStep: React.FC<NextStepProps> = ({
+const NextStep: React.FC<
+  NextStepProps
+> = ({
   text,
 }) => {
   return (

@@ -1,6 +1,6 @@
 export type UserStatus =
   | "INVITADO"
-  | "PENDIENTE_VERIFICACION"
+  | "EMAIL_PENDIENTE_VERIFICACION"
   | "REGISTRADO"
   | "BLOQUEADO";
 

@@ -1,16 +1,24 @@
 package com.asthood.techstore.controller;
 
 import com.asthood.techstore.dto.OrderRequestDTO;
+import com.asthood.techstore.dto.OrderResponseDTO;
 import com.asthood.techstore.dto.PaymentResponseDTO;
 import com.asthood.techstore.model.Order;
-import com.asthood.techstore.repository.OrderRepository;
 import com.asthood.techstore.service.OrderCheckoutService;
+import com.asthood.techstore.service.OrderService;
 import com.asthood.techstore.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -22,8 +30,17 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class PaymentController {
 
     private final PaymentService paymentService;
-    private final OrderCheckoutService orderCheckoutService;
-    private final OrderRepository orderRepository;
+
+    private final OrderCheckoutService
+            orderCheckoutService;
+
+    /*
+     * Las consultas de órdenes pasan por OrderService.
+     *
+     * El controlador nunca devuelve directamente
+     * una entidad JPA Order.
+     */
+    private final OrderService orderService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -34,19 +51,24 @@ public class PaymentController {
 
     @PostMapping("/create_preference")
     public ResponseEntity<PaymentResponseDTO> create(
-            @RequestBody OrderRequestDTO orderRequest
+            @RequestBody
+            OrderRequestDTO orderRequest
     ) {
         try {
             Order preparedOrder =
-                    orderCheckoutService.prepareOrder(
-                            orderRequest
-                    );
+                    orderCheckoutService
+                            .prepareOrder(
+                                    orderRequest
+                            );
 
             String checkoutUrl =
-                    paymentService.createPreference(
-                            orderRequest.getItems(),
-                            preparedOrder.getId()
-                    );
+                    paymentService
+                            .createPreference(
+                                    orderRequest
+                                            .getItems(),
+                                    preparedOrder
+                                            .getId()
+                            );
 
             log.info(
                     "Preferencia creada para la orden #{} por un total de ${}",
@@ -54,14 +76,19 @@ public class PaymentController {
                     preparedOrder.getTotal()
             );
 
-            return ResponseEntity.ok(
+            PaymentResponseDTO response =
                     new PaymentResponseDTO(
                             checkoutUrl,
                             preparedOrder.getId()
-                    )
+                    );
+
+            return ResponseEntity.ok(
+                    response
             );
 
-        } catch (IllegalArgumentException exception) {
+        } catch (
+                IllegalArgumentException exception
+        ) {
             log.warn(
                     "Solicitud de pago rechazada: {}",
                     exception.getMessage()
@@ -71,9 +98,11 @@ public class PaymentController {
                     .badRequest()
                     .build();
 
-        } catch (Exception exception) {
+        } catch (
+                Exception exception
+        ) {
             log.error(
-                    "Error crítico al preparar la orden o crear la preferencia de pago",
+                    "Error crítico al preparar la orden o crear la preferencia de pago.",
                     exception
             );
 
@@ -92,49 +121,103 @@ public class PaymentController {
             @RequestParam(
                     name = "payment_id",
                     required = false
-            ) String paymentId,
+            )
+            String paymentId,
 
             @RequestParam(
                     name = "status",
                     required = false
-            ) String status,
+            )
+            String status,
 
             @RequestParam(
                     name = "external_reference",
                     required = false
-            ) String externalReference
+            )
+            String externalReference
     ) {
-        String redirectUrl = UriComponentsBuilder
-                .fromUriString(
-                        removeTrailingSlash(
-                                frontendUrl
-                        )
-                )
-                .path("/success")
-                .queryParam(
-                        "payment_id",
-                        valueOrEmpty(
+        /*
+         * El retorno del navegador actúa como mecanismo
+         * de recuperación si el webhook todavía no llegó.
+         *
+         * No confiamos en el parámetro status recibido.
+         * processWebhook consulta directamente el pago
+         * mediante la API oficial de Mercado Pago.
+         */
+        if (
+                paymentId != null &&
+                        !paymentId.isBlank()
+        ) {
+            try {
+                log.info(
+                        "Verificando pago {} desde la URL de retorno.",
+                        paymentId
+                );
+
+                paymentService
+                        .processWebhook(
+                                "payment",
                                 paymentId
+                        );
+
+            } catch (
+                    Exception exception
+            ) {
+                /*
+                 * No impedimos que el cliente regrese
+                 * al frontend.
+                 *
+                 * El webhook todavía podría confirmar
+                 * el pago posteriormente.
+                 */
+                log.error(
+                        "No fue posible verificar el pago {} desde la URL de retorno.",
+                        paymentId,
+                        exception
+                );
+            }
+
+        } else {
+            log.warn(
+                    "Mercado Pago regresó sin payment_id para la orden {}.",
+                    externalReference
+            );
+        }
+
+        String redirectUrl =
+                UriComponentsBuilder
+                        .fromUriString(
+                                removeTrailingSlash(
+                                        frontendUrl
+                                )
                         )
-                )
-                .queryParam(
-                        "status",
-                        valueOrEmpty(
-                                status
+                        .path(
+                                "/success"
                         )
-                )
-                .queryParam(
-                        "external_reference",
-                        valueOrEmpty(
-                                externalReference
+                        .queryParam(
+                                "payment_id",
+                                valueOrEmpty(
+                                        paymentId
+                                )
                         )
-                )
-                .build()
-                .encode()
-                .toUriString();
+                        .queryParam(
+                                "status",
+                                valueOrEmpty(
+                                        status
+                                )
+                        )
+                        .queryParam(
+                                "external_reference",
+                                valueOrEmpty(
+                                        externalReference
+                                )
+                        )
+                        .build()
+                        .encode()
+                        .toUriString();
 
         log.info(
-                "Pago aprobado. Redirigiendo hacia: {}",
+                "Retorno de Mercado Pago. Redirigiendo hacia: {}",
                 redirectUrl
         );
 
@@ -144,7 +227,7 @@ public class PaymentController {
     }
 
     // =========================================================
-    // RETORNO FALLIDO O CANCELADO DESDE MERCADO PAGO
+    // RETORNO FALLIDO O CANCELADO
     // =========================================================
 
     @GetMapping("/failure")
@@ -152,50 +235,56 @@ public class PaymentController {
             @RequestParam(
                     name = "payment_id",
                     required = false
-            ) String paymentId,
+            )
+            String paymentId,
 
             @RequestParam(
                     name = "status",
                     required = false
-            ) String status,
+            )
+            String status,
 
             @RequestParam(
                     name = "external_reference",
                     required = false
-            ) String externalReference
+            )
+            String externalReference
     ) {
-        String redirectUrl = UriComponentsBuilder
-                .fromUriString(
-                        removeTrailingSlash(
-                                frontendUrl
+        String redirectUrl =
+                UriComponentsBuilder
+                        .fromUriString(
+                                removeTrailingSlash(
+                                        frontendUrl
+                                )
                         )
-                )
-                .path("/checkout")
-                .queryParam(
-                        "payment",
-                        "failure"
-                )
-                .queryParam(
-                        "payment_id",
-                        valueOrEmpty(
-                                paymentId
+                        .path(
+                                "/checkout"
                         )
-                )
-                .queryParam(
-                        "status",
-                        valueOrEmpty(
-                                status
+                        .queryParam(
+                                "payment",
+                                "failure"
                         )
-                )
-                .queryParam(
-                        "external_reference",
-                        valueOrEmpty(
-                                externalReference
+                        .queryParam(
+                                "payment_id",
+                                valueOrEmpty(
+                                        paymentId
+                                )
                         )
-                )
-                .build()
-                .encode()
-                .toUriString();
+                        .queryParam(
+                                "status",
+                                valueOrEmpty(
+                                        status
+                                )
+                        )
+                        .queryParam(
+                                "external_reference",
+                                valueOrEmpty(
+                                        externalReference
+                                )
+                        )
+                        .build()
+                        .encode()
+                        .toUriString();
 
         log.info(
                 "Pago cancelado o rechazado. Redirigiendo hacia: {}",
@@ -208,7 +297,7 @@ public class PaymentController {
     }
 
     // =========================================================
-    // RETORNO PENDIENTE DESDE MERCADO PAGO
+    // RETORNO PENDIENTE
     // =========================================================
 
     @GetMapping("/pending")
@@ -216,50 +305,56 @@ public class PaymentController {
             @RequestParam(
                     name = "payment_id",
                     required = false
-            ) String paymentId,
+            )
+            String paymentId,
 
             @RequestParam(
                     name = "status",
                     required = false
-            ) String status,
+            )
+            String status,
 
             @RequestParam(
                     name = "external_reference",
                     required = false
-            ) String externalReference
+            )
+            String externalReference
     ) {
-        String redirectUrl = UriComponentsBuilder
-                .fromUriString(
-                        removeTrailingSlash(
-                                frontendUrl
+        String redirectUrl =
+                UriComponentsBuilder
+                        .fromUriString(
+                                removeTrailingSlash(
+                                        frontendUrl
+                                )
                         )
-                )
-                .path("/checkout")
-                .queryParam(
-                        "payment",
-                        "pending"
-                )
-                .queryParam(
-                        "payment_id",
-                        valueOrEmpty(
-                                paymentId
+                        .path(
+                                "/checkout"
                         )
-                )
-                .queryParam(
-                        "status",
-                        valueOrEmpty(
-                                status
+                        .queryParam(
+                                "payment",
+                                "pending"
                         )
-                )
-                .queryParam(
-                        "external_reference",
-                        valueOrEmpty(
-                                externalReference
+                        .queryParam(
+                                "payment_id",
+                                valueOrEmpty(
+                                        paymentId
+                                )
                         )
-                )
-                .build()
-                .encode()
-                .toUriString();
+                        .queryParam(
+                                "status",
+                                valueOrEmpty(
+                                        status
+                                )
+                        )
+                        .queryParam(
+                                "external_reference",
+                                valueOrEmpty(
+                                        externalReference
+                                )
+                        )
+                        .build()
+                        .encode()
+                        .toUriString();
 
         log.info(
                 "Pago pendiente. Redirigiendo hacia: {}",
@@ -280,22 +375,26 @@ public class PaymentController {
             @RequestParam(
                     name = "topic",
                     required = false
-            ) String topic,
+            )
+            String topic,
 
             @RequestParam(
                     name = "id",
                     required = false
-            ) String id,
+            )
+            String id,
 
             @RequestParam(
                     name = "data.id",
                     required = false
-            ) String dataId,
+            )
+            String dataId,
 
             @RequestParam(
                     name = "type",
                     required = false
-            ) String type
+            )
+            String type
     ) {
         String paymentId =
                 firstNonBlank(
@@ -310,11 +409,11 @@ public class PaymentController {
                 );
 
         if (
-                paymentId == null
-                        || finalTopic == null
+                paymentId == null ||
+                        finalTopic == null
         ) {
             log.info(
-                    "Webhook ignorado por no contener tipo o ID de pago"
+                    "Webhook ignorado por no contener tipo o ID de pago."
             );
 
             return ResponseEntity
@@ -323,9 +422,10 @@ public class PaymentController {
         }
 
         if (
-                !"payment".equalsIgnoreCase(
-                        finalTopic
-                )
+                !"payment"
+                        .equalsIgnoreCase(
+                                finalTopic
+                        )
         ) {
             log.info(
                     "Webhook ignorado. Tipo recibido: {}",
@@ -343,16 +443,19 @@ public class PaymentController {
                     paymentId
             );
 
-            paymentService.processWebhook(
-                    finalTopic,
-                    paymentId
-            );
+            paymentService
+                    .processWebhook(
+                            finalTopic,
+                            paymentId
+                    );
 
             return ResponseEntity
                     .ok()
                     .build();
 
-        } catch (Exception exception) {
+        } catch (
+                Exception exception
+        ) {
             log.error(
                     "Error procesando webhook de Mercado Pago. Payment ID: {}",
                     paymentId,
@@ -366,51 +469,64 @@ public class PaymentController {
     }
 
     // =========================================================
-    // CONSULTAS DE ÓRDENES
+    // CONSULTAS SEGURAS DE ÓRDENES
     // =========================================================
 
+    /*
+     * Devuelve la última orden del usuario mediante DTO.
+     *
+     * Nunca devuelve directamente la entidad Order.
+     */
     @GetMapping("/latest/{userId}")
-    public ResponseEntity<Order> getLatestOrder(
-            @PathVariable Long userId
-    ) {
-        return orderRepository
-                .findFirstByUserIdOrderByIdDesc(
-                        userId
-                )
-                .map(
-                        ResponseEntity::ok
-                )
-                .orElseGet(() ->
-                        ResponseEntity
-                                .notFound()
-                                .build()
-                );
-    }
-
-    @GetMapping("/order/{id}")
-    public ResponseEntity<Order> getOrderById(
-            @PathVariable Long id
+    public ResponseEntity<OrderResponseDTO> getLatestOrder(
+            @PathVariable
+            Long userId
     ) {
         log.info(
-                "Buscando detalles de la orden #{}",
+                "Buscando última orden del usuario #{}",
+                userId
+        );
+
+        OrderResponseDTO response =
+                orderService
+                        .getLatestOrderByUserId(
+                                userId
+                        );
+
+        return ResponseEntity.ok(
+                response
+        );
+    }
+
+    /*
+     * Devuelve una orden concreta mediante DTO seguro.
+     *
+     * No expone:
+     *
+     * - User
+     * - password
+     * - entidades JPA
+     * - información interna del producto
+     */
+    @GetMapping("/order/{id}")
+    public ResponseEntity<OrderResponseDTO> getOrderById(
+            @PathVariable
+            Long id
+    ) {
+        log.info(
+                "Buscando resumen seguro de la orden #{}",
                 id
         );
 
-        return orderRepository
-                .findById(id)
-                .map(
-                        ResponseEntity::ok
-                )
-                .orElseGet(() -> {
-                    log.warn(
-                            "Orden #{} no encontrada",
-                            id
-                    );
+        OrderResponseDTO response =
+                orderService
+                        .getOrderById(
+                                id
+                        );
 
-                    return ResponseEntity
-                            .notFound()
-                            .build();
-                });
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     // =========================================================
@@ -422,15 +538,15 @@ public class PaymentController {
             String secondValue
     ) {
         if (
-                firstValue != null
-                        && !firstValue.isBlank()
+                firstValue != null &&
+                        !firstValue.isBlank()
         ) {
             return firstValue.trim();
         }
 
         if (
-                secondValue != null
-                        && !secondValue.isBlank()
+                secondValue != null &&
+                        !secondValue.isBlank()
         ) {
             return secondValue.trim();
         }
@@ -450,8 +566,8 @@ public class PaymentController {
             String url
     ) {
         if (
-                url == null
-                        || url.isBlank()
+                url == null ||
+                        url.isBlank()
         ) {
             throw new IllegalStateException(
                     "La propiedad app.frontend-url no está configurada."

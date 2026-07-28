@@ -1,33 +1,82 @@
 package com.asthood.techstore.service;
 
 import com.asthood.techstore.dto.ChangePasswordDTO;
+import com.asthood.techstore.dto.EmailVerificationResponseDTO;
 import com.asthood.techstore.dto.RegisterRequestDTO;
 import com.asthood.techstore.dto.UpdateProfileDTO;
 import com.asthood.techstore.dto.UserAuthResponseDTO;
+import com.asthood.techstore.event.EmailVerificationRequestedEvent;
+import com.asthood.techstore.exception.VerificationTokenErrorCode;
+import com.asthood.techstore.exception.VerificationTokenException;
 import com.asthood.techstore.model.Address;
 import com.asthood.techstore.model.User;
 import com.asthood.techstore.model.UserStatus;
+import com.asthood.techstore.model.VerificationPurpose;
+import com.asthood.techstore.model.VerificationToken;
 import com.asthood.techstore.repository.UserRepository;
+import com.asthood.techstore.service.identity.IssuedVerificationToken;
+import com.asthood.techstore.service.identity.VerificationTokenService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+
     private final PasswordEncoder passwordEncoder;
 
+    private final VerificationTokenService
+            verificationTokenService;
+
+    private final ApplicationEventPublisher
+            applicationEventPublisher;
+
+    private final Clock applicationClock;
+
+    /*
+     * Registra una cuenta nueva o prepara una cuenta invitada
+     * para convertirse en cuenta registrada.
+     *
+     * La cuenta no queda activa inmediatamente.
+     * Permanece en EMAIL_PENDIENTE_VERIFICACION hasta que
+     * el cliente utilice correctamente el enlace enviado.
+     */
     @Transactional
     public UserAuthResponseDTO register(
             RegisterRequestDTO request
     ) {
-        validateRegisterRequest(request);
+        return register(
+                request,
+                null
+        );
+    }
+
+    /*
+     * Sobrecarga que permite registrar también la IP desde
+     * la cual se solicitó la creación de la cuenta.
+     *
+     * La IP nunca se almacena directamente: el servicio
+     * de tokens conserva únicamente su hash.
+     */
+    @Transactional
+    public UserAuthResponseDTO register(
+            RegisterRequestDTO request,
+            String requestIp
+    ) {
+        validateRegisterRequest(
+                request
+        );
 
         String normalizedEmail =
                 normalizeEmail(
@@ -51,7 +100,7 @@ public class AuthService {
                         )
                         .map(
                                 existingUser ->
-                                        convertGuestToRegistered(
+                                        prepareExistingUserForRegistration(
                                                 existingUser,
                                                 request,
                                                 firstName,
@@ -60,7 +109,7 @@ public class AuthService {
                         )
                         .orElseGet(
                                 () ->
-                                        createRegisteredUser(
+                                        createPendingUser(
                                                 request,
                                                 normalizedEmail,
                                                 firstName,
@@ -74,13 +123,182 @@ public class AuthService {
         );
 
         User savedUser =
-                userRepository.save(user);
+                userRepository.saveAndFlush(
+                        user
+                );
+
+        IssuedVerificationToken issuedToken =
+                verificationTokenService
+                        .issueToken(
+                                savedUser,
+                                savedUser.getEmail(),
+                                resolveRegistrationPurpose(
+                                        savedUser
+                                ),
+                                requestIp
+                        );
+
+        publishVerificationEmailEvent(
+                savedUser,
+                issuedToken
+        );
 
         return toResponseDTO(
                 savedUser
         );
     }
 
+    /*
+     * Reenvía el correo de verificación para una cuenta
+     * que todavía se encuentra pendiente.
+     *
+     * La respuesta externa debería ser genérica para evitar
+     * revelar si un correo existe en la base de datos.
+     */
+    @Transactional
+    public void resendVerification(
+            String email,
+            String requestIp
+    ) {
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+        User user =
+                userRepository
+                        .findByEmail(
+                                normalizedEmail
+                        )
+                        .orElse(null);
+
+        /*
+         * No revelamos públicamente que el correo
+         * no está registrado.
+         */
+        if (user == null) {
+            return;
+        }
+
+        if (user.isRegistered()) {
+            /*
+             * También evitamos revelar mediante el endpoint
+             * público que existe una cuenta activa.
+             */
+            return;
+        }
+
+        if (
+                !user.isEmailVerificationPending()
+        ) {
+            return;
+        }
+
+        IssuedVerificationToken issuedToken =
+                verificationTokenService
+                        .issueToken(
+                                user,
+                                user.getEmail(),
+                                VerificationPurpose
+                                        .EMAIL_VERIFICATION,
+                                requestIp
+                        );
+
+        publishVerificationEmailEvent(
+                user,
+                issuedToken
+        );
+    }
+
+    /*
+     * Consume el token recibido por correo y activa
+     * definitivamente la cuenta.
+     */
+    @Transactional
+    public EmailVerificationResponseDTO verifyEmail(
+            String rawToken
+    ) {
+        VerificationToken verificationToken =
+                verificationTokenService
+                        .consumeToken(
+                                rawToken,
+                                VerificationPurpose
+                                        .EMAIL_VERIFICATION
+                        );
+
+        User user =
+                verificationToken
+                        .getUser();
+
+        if (user == null) {
+            throw new VerificationTokenException(
+                    VerificationTokenErrorCode
+                            .USER_NOT_FOUND
+            );
+        }
+
+        if (user.isRegistered()) {
+            throw new VerificationTokenException(
+                    VerificationTokenErrorCode
+                            .ACCOUNT_ALREADY_ACTIVE
+            );
+        }
+
+        if (
+                !user.isEmailVerificationPending()
+        ) {
+            throw new VerificationTokenException(
+                    VerificationTokenErrorCode
+                            .ACCOUNT_NOT_PENDING
+            );
+        }
+
+        String tokenEmail =
+                normalizeEmail(
+                        verificationToken
+                                .getEmail()
+                );
+
+        String userEmail =
+                normalizeEmail(
+                        user.getEmail()
+                );
+
+        if (
+                !tokenEmail.equals(
+                        userEmail
+                )
+        ) {
+            throw new VerificationTokenException(
+                    VerificationTokenErrorCode
+                            .TOKEN_INVALID
+            );
+        }
+
+        user.verifyEmail(
+                now()
+        );
+
+        User savedUser =
+                userRepository.save(
+                        user
+                );
+
+        return EmailVerificationResponseDTO
+                .builder()
+                .verified(true)
+                .message(
+                        "Tu correo fue verificado correctamente. Ya puedes iniciar sesión."
+                )
+                .status(
+                        savedUser.getStatus()
+                )
+                .build();
+    }
+
+    /*
+     * Obtiene los datos de una cuenta autenticada y activa.
+     */
     @Transactional(readOnly = true)
     public UserAuthResponseDTO getAuthenticatedUser(
             String email
@@ -90,11 +308,16 @@ public class AuthService {
                         email
                 );
 
-        return toResponseDTO(user);
+        return toResponseDTO(
+                user
+        );
     }
 
     /*
-     * Actualiza los datos personales permitidos.
+     * Actualiza solamente los datos personales permitidos.
+     *
+     * El correo, la contraseña y el estado de la cuenta
+     * no se modifican mediante esta operación.
      */
     @Transactional
     public UserAuthResponseDTO updateProfile(
@@ -129,7 +352,9 @@ public class AuthService {
         );
 
         User savedUser =
-                userRepository.save(user);
+                userRepository.save(
+                        user
+                );
 
         return toResponseDTO(
                 savedUser
@@ -137,7 +362,7 @@ public class AuthService {
     }
 
     /*
-     * Cambia la contraseña del usuario autenticado.
+     * Cambia la contraseña de una cuenta autenticada.
      */
     @Transactional
     public void changePassword(
@@ -195,60 +420,50 @@ public class AuthService {
                 )
         );
 
-        userRepository.save(user);
+        userRepository.save(
+                user
+        );
     }
 
-    private User findRegisteredUserByEmail(
-            String email
-    ) {
-        if (
-                email == null ||
-                        email.isBlank()
-        ) {
-            throw new IllegalArgumentException(
-                    "El correo del usuario autenticado es obligatorio."
-            );
-        }
-
-        String normalizedEmail =
-                normalizeEmail(email);
-
-        User user =
-                userRepository
-                        .findByEmail(
-                                normalizedEmail
-                        )
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "Usuario no encontrado."
-                                        )
-                        );
-
-        if (
-                user.getStatus()
-                        != UserStatus.REGISTRADO
-        ) {
-            throw new IllegalArgumentException(
-                    "El usuario no tiene una cuenta registrada."
-            );
-        }
-
-        return user;
-    }
-
-    private User convertGuestToRegistered(
+    /*
+     * Prepara una cuenta existente para el proceso
+     * de registro.
+     *
+     * Escenarios admitidos:
+     *
+     * - INVITADO:
+     *   conserva pedidos y relaciones existentes;
+     *   pasa a EMAIL_PENDIENTE_VERIFICACION.
+     *
+     * - EMAIL_PENDIENTE_VERIFICACION:
+     *   actualiza sus datos y genera un nuevo enlace.
+     *
+     * - REGISTRADO:
+     *   no permite registrar nuevamente el mismo correo.
+     *
+     * - BLOQUEADO:
+     *   tampoco permite utilizar el registro público.
+     */
+    private User prepareExistingUserForRegistration(
             User existingUser,
             RegisterRequestDTO request,
             String firstName,
             String lastName
     ) {
+        if (existingUser.isRegistered()) {
+            throw new VerificationTokenException(
+                    VerificationTokenErrorCode
+                            .ACCOUNT_ALREADY_ACTIVE,
+                    "Ya existe una cuenta activa con este correo."
+            );
+        }
+
         if (
-                existingUser.getStatus()
-                        == UserStatus.REGISTRADO
+                existingUser.getStatus() ==
+                        UserStatus.BLOQUEADO
         ) {
-            throw new IllegalArgumentException(
-                    "Este correo ya tiene una cuenta activa."
+            throw new IllegalStateException(
+                    "No fue posible completar el registro de esta cuenta."
             );
         }
 
@@ -272,15 +487,23 @@ public class AuthService {
                 )
         );
 
-        existingUser.setStatus(
-                UserStatus.REGISTRADO
-        );
+        existingUser
+                .markEmailVerificationPending();
 
         if (
-                existingUser.getAddresses()
-                        == null
+                existingUser.getAddresses() ==
+                        null
         ) {
             existingUser.setAddresses(
+                    new ArrayList<>()
+            );
+        }
+
+        if (
+                existingUser.getOrders() ==
+                        null
+        ) {
+            existingUser.setOrders(
                     new ArrayList<>()
             );
         }
@@ -288,16 +511,25 @@ public class AuthService {
         return existingUser;
     }
 
-    private User createRegisteredUser(
+    /*
+     * Crea una cuenta nueva pendiente de verificación.
+     */
+    private User createPendingUser(
             RegisterRequestDTO request,
             String normalizedEmail,
             String firstName,
             String lastName
     ) {
         return User.builder()
-                .firstName(firstName)
-                .lastName(lastName)
-                .email(normalizedEmail)
+                .firstName(
+                        firstName
+                )
+                .lastName(
+                        lastName
+                )
+                .email(
+                        normalizedEmail
+                )
                 .password(
                         passwordEncoder.encode(
                                 request.getPassword()
@@ -309,7 +541,11 @@ public class AuthService {
                         )
                 )
                 .status(
-                        UserStatus.REGISTRADO
+                        UserStatus
+                                .EMAIL_PENDIENTE_VERIFICACION
+                )
+                .emailVerifiedAt(
+                        null
                 )
                 .addresses(
                         new ArrayList<>()
@@ -320,38 +556,207 @@ public class AuthService {
                 .build();
     }
 
+    /*
+     * Publica el evento que será procesado solamente
+     * después del commit correcto de la transacción.
+     */
+    private void publishVerificationEmailEvent(
+            User user,
+            IssuedVerificationToken issuedToken
+    ) {
+        EmailVerificationRequestedEvent event =
+                new EmailVerificationRequestedEvent(
+                        user.getFirstName(),
+                        issuedToken.email(),
+                        issuedToken.rawToken(),
+                        issuedToken.expiresAt()
+                );
+
+        applicationEventPublisher
+                .publishEvent(
+                        event
+                );
+    }
+
+    /*
+     * Actualmente las cuentas invitadas y las cuentas
+     * nuevas utilizan el mismo enlace de activación.
+     *
+     * GUEST_ACCOUNT_CONVERSION queda reservado para el
+     * flujo especial de conversión inmediata posterior
+     * al checkout.
+     */
+    private VerificationPurpose resolveRegistrationPurpose(
+            User user
+    ) {
+        return VerificationPurpose
+                .EMAIL_VERIFICATION;
+    }
+
+    private User findRegisteredUserByEmail(
+            String email
+    ) {
+        if (
+                email == null ||
+                        email.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "El correo del usuario autenticado es obligatorio."
+            );
+        }
+
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+        User user =
+                userRepository
+                        .findByEmail(
+                                normalizedEmail
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Usuario no encontrado."
+                                        )
+                        );
+
+        if (!user.isRegistered()) {
+            if (
+                    user.isEmailVerificationPending()
+            ) {
+                throw new IllegalStateException(
+                        "La cuenta aún requiere verificar su correo electrónico."
+                );
+            }
+
+            if (
+                    user.getStatus() ==
+                            UserStatus.BLOQUEADO
+            ) {
+                throw new IllegalStateException(
+                        "La cuenta se encuentra bloqueada."
+                );
+            }
+
+            throw new IllegalArgumentException(
+                    "El usuario no tiene una cuenta registrada."
+            );
+        }
+
+        if (
+                !user.isEmailVerified()
+        ) {
+            throw new IllegalStateException(
+                    "El correo de la cuenta todavía no ha sido verificado."
+            );
+        }
+
+        return user;
+    }
+
+    /*
+     * Agrega la dirección proporcionada durante el registro.
+     *
+     * Si la misma dirección ya está asociada al usuario,
+     * no crea un duplicado.
+     */
     private void addMainAddressIfPresent(
             User user,
             RegisterRequestDTO request
     ) {
         if (
                 request.getStreet() == null ||
-                        request.getStreet().isBlank()
+                        request.getStreet()
+                                .isBlank()
         ) {
             return;
         }
 
         if (
-                user.getAddresses()
-                        == null
+                user.getAddresses() ==
+                        null
         ) {
             user.setAddresses(
                     new ArrayList<>()
             );
         }
 
-        user.getAddresses().forEach(
-                address ->
-                        address.setDefault(
-                                false
-                        )
-        );
+        String street =
+                normalizeText(
+                        request.getStreet()
+                );
+
+        String number =
+                normalizeNullableText(
+                        request.getNumber()
+                );
+
+        String apartment =
+                normalizeNullableText(
+                        request.getApartment()
+                );
+
+        String city =
+                normalizeNullableText(
+                        request.getCity()
+                );
+
+        String region =
+                normalizeNullableText(
+                        request.getRegion()
+                );
+
+        boolean addressAlreadyExists =
+                user.getAddresses()
+                        .stream()
+                        .anyMatch(
+                                existingAddress ->
+                                        sameNormalizedValue(
+                                                existingAddress
+                                                        .getStreet(),
+                                                street
+                                        ) &&
+                                                sameNormalizedValue(
+                                                        existingAddress
+                                                                .getNumber(),
+                                                        number
+                                                ) &&
+                                                sameNormalizedValue(
+                                                        existingAddress
+                                                                .getApartment(),
+                                                        apartment
+                                                ) &&
+                                                sameNormalizedValue(
+                                                        existingAddress
+                                                                .getCity(),
+                                                        city
+                                                ) &&
+                                                sameNormalizedValue(
+                                                        existingAddress
+                                                                .getRegion(),
+                                                        region
+                                                )
+                        );
+
+        if (addressAlreadyExists) {
+            return;
+        }
+
+        user.getAddresses()
+                .forEach(
+                        address ->
+                                address.setDefault(
+                                        false
+                                )
+                );
 
         Address address =
                 Address.builder()
                         .label(
-                                request.getAddressLabel()
-                                        == null ||
+                                request.getAddressLabel() ==
+                                        null ||
                                         request.getAddressLabel()
                                                 .isBlank()
                                         ? "Principal"
@@ -360,46 +765,64 @@ public class AuthService {
                                 )
                         )
                         .street(
-                                normalizeText(
-                                        request.getStreet()
-                                )
+                                street
                         )
                         .number(
-                                normalizeNullableText(
-                                        request.getNumber()
-                                )
+                                number
                         )
                         .apartment(
-                                normalizeNullableText(
-                                        request.getApartment()
-                                )
+                                apartment
                         )
                         .city(
-                                normalizeNullableText(
-                                        request.getCity()
-                                )
+                                city
                         )
                         .region(
-                                normalizeNullableText(
-                                        request.getRegion()
-                                )
+                                region
                         )
                         .extraInfo(
                                 normalizeNullableText(
                                         request.getExtraInfo()
                                 )
                         )
-                        .isDefault(true)
-                        .user(user)
+                        .isDefault(
+                                true
+                        )
+                        .user(
+                                user
+                        )
                         .build();
 
-        user.getAddresses().add(address);
+        user.getAddresses()
+                .add(
+                        address
+                );
+    }
+
+    private boolean sameNormalizedValue(
+            String firstValue,
+            String secondValue
+    ) {
+        String normalizedFirst =
+                normalizeNullableText(
+                        firstValue
+                );
+
+        String normalizedSecond =
+                normalizeNullableText(
+                        secondValue
+                );
+
+        return Objects.equals(
+                normalizedFirst,
+                normalizedSecond
+        );
     }
 
     private UserAuthResponseDTO toResponseDTO(
             User user
     ) {
-        return UserAuthResponseDTO.builder()
+        return UserAuthResponseDTO
+                .builder()
                 .id(
                         user.getId()
                 )
@@ -431,8 +854,8 @@ public class AuthService {
         }
 
         if (
-                request.getFirstName()
-                        == null ||
+                request.getFirstName() ==
+                        null ||
                         request.getFirstName()
                                 .isBlank()
         ) {
@@ -442,8 +865,8 @@ public class AuthService {
         }
 
         if (
-                request.getLastName()
-                        == null ||
+                request.getLastName() ==
+                        null ||
                         request.getLastName()
                                 .isBlank()
         ) {
@@ -453,8 +876,8 @@ public class AuthService {
         }
 
         if (
-                request.getEmail()
-                        == null ||
+                request.getEmail() ==
+                        null ||
                         request.getEmail()
                                 .isBlank()
         ) {
@@ -464,8 +887,8 @@ public class AuthService {
         }
 
         if (
-                request.getPassword()
-                        == null ||
+                request.getPassword() ==
+                        null ||
                         request.getPassword()
                                 .isBlank()
         ) {
@@ -490,8 +913,8 @@ public class AuthService {
         }
 
         if (
-                request.getFirstName()
-                        == null ||
+                request.getFirstName() ==
+                        null ||
                         request.getFirstName()
                                 .isBlank()
         ) {
@@ -501,8 +924,8 @@ public class AuthService {
         }
 
         if (
-                request.getLastName()
-                        == null ||
+                request.getLastName() ==
+                        null ||
                         request.getLastName()
                                 .isBlank()
         ) {
@@ -522,8 +945,8 @@ public class AuthService {
         }
 
         if (
-                request.getCurrentPassword()
-                        == null ||
+                request.getCurrentPassword() ==
+                        null ||
                         request.getCurrentPassword()
                                 .isBlank()
         ) {
@@ -533,8 +956,8 @@ public class AuthService {
         }
 
         if (
-                request.getNewPassword()
-                        == null ||
+                request.getNewPassword() ==
+                        null ||
                         request.getNewPassword()
                                 .isBlank()
         ) {
@@ -544,8 +967,8 @@ public class AuthService {
         }
 
         if (
-                request.getConfirmPassword()
-                        == null ||
+                request.getConfirmPassword() ==
+                        null ||
                         request.getConfirmPassword()
                                 .isBlank()
         ) {
@@ -587,6 +1010,15 @@ public class AuthService {
     private String normalizeEmail(
             String email
     ) {
+        if (
+                email == null ||
+                        email.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "El correo es obligatorio."
+            );
+        }
+
         return email
                 .trim()
                 .toLowerCase(
@@ -615,6 +1047,14 @@ public class AuthService {
             return null;
         }
 
-        return normalizeText(value);
+        return normalizeText(
+                value
+        );
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(
+                applicationClock
+        );
     }
 }
