@@ -421,20 +421,9 @@ function App() {
     }
   };
 
-  const handleGuestContinue =
-    () => {
-      sessionStorage.removeItem(
-        CHECKOUT_SESSION_KEY
-      );
-
-      localStorage.removeItem(
-        PENDING_ORDER_KEY
-      );
-
-      navigate(
-        "/checkout"
-      );
-    };
+  const handleGuestContinue = () => {
+  navigate("/checkout");
+};
 
   const processedProducts =
     useMemo(() => {

@@ -21,29 +21,31 @@ export interface AddressRequest {
 }
 
 /*
- * Obtiene todas las direcciones del cliente.
+ * Obtiene todas las direcciones del usuario autenticado.
+ *
+ * El backend determina al propietario mediante
+ * las credenciales HTTP Basic.
  */
-export async function getUserAddresses(
-  userId: number
-): Promise<Address[]> {
+export async function getUserAddresses(): Promise<
+  Address[]
+> {
   const response =
     await api.get<Address[]>(
-      `/addresses/user/${userId}`
+      "/addresses"
     );
 
   return response.data;
 }
 
 /*
- * Crea una dirección para el cliente.
+ * Crea una dirección para el usuario autenticado.
  */
 export async function createUserAddress(
-  userId: number,
   request: AddressRequest
 ): Promise<Address> {
   const response =
     await api.post<Address>(
-      `/addresses/user/${userId}`,
+      "/addresses",
       request
     );
 
@@ -51,16 +53,20 @@ export async function createUserAddress(
 }
 
 /*
- * Actualiza una dirección existente.
+ * Actualiza una dirección perteneciente
+ * al usuario autenticado.
  */
 export async function updateUserAddress(
-  userId: number,
   addressId: number,
   request: AddressRequest
 ): Promise<Address> {
+  validateAddressId(
+    addressId
+  );
+
   const response =
     await api.put<Address>(
-      `/addresses/user/${userId}/${addressId}`,
+      `/addresses/${addressId}`,
       request
     );
 
@@ -68,29 +74,37 @@ export async function updateUserAddress(
 }
 
 /*
- * Marca una dirección como predeterminada.
+ * Marca una dirección del usuario autenticado
+ * como predeterminada.
  */
 export async function setDefaultUserAddress(
-  userId: number,
   addressId: number
 ): Promise<Address> {
+  validateAddressId(
+    addressId
+  );
+
   const response =
     await api.patch<Address>(
-      `/addresses/user/${userId}/${addressId}/default`
+      `/addresses/${addressId}/default`
     );
 
   return response.data;
 }
 
 /*
- * Elimina una dirección.
+ * Elimina una dirección perteneciente
+ * al usuario autenticado.
  */
 export async function deleteUserAddress(
-  userId: number,
   addressId: number
 ): Promise<void> {
+  validateAddressId(
+    addressId
+  );
+
   await api.delete(
-    `/addresses/user/${userId}/${addressId}`
+    `/addresses/${addressId}`
   );
 }
 
@@ -99,3 +113,18 @@ export async function deleteUserAddress(
  */
 export type CreateAddressRequest =
   AddressRequest;
+
+function validateAddressId(
+  addressId: number
+): void {
+  if (
+    !Number.isInteger(
+      addressId
+    ) ||
+    addressId <= 0
+  ) {
+    throw new Error(
+      "El identificador de la dirección no es válido."
+    );
+  }
+}

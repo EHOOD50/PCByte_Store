@@ -198,6 +198,39 @@ public class SecurityConfig {
                                          * de endpoints y aplicaremos permisos
                                          * específicos.
                                          */
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/addresses",
+                                                "/api/addresses/**"
+                                        )
+                                        .hasRole("USER")
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/addresses"
+                                        )
+                                        .hasRole("USER")
+
+                                        .requestMatchers(
+                                                HttpMethod.PUT,
+                                                "/api/addresses/**"
+                                        )
+                                        .hasRole("USER")
+
+                                        .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/addresses/**"
+                                        )
+                                        .hasRole("USER")
+
+                                        .requestMatchers(
+                                                HttpMethod.DELETE,
+                                                "/api/addresses/**"
+                                        )
+                                        .hasRole("USER")
+
+
                                         .anyRequest()
                                         .permitAll()
                 );

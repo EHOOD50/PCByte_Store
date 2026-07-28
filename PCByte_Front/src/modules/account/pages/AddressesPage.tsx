@@ -62,13 +62,13 @@ const AddressesPage = () => {
   } = useAuth();
 
   const {
-    addresses,
-    loading,
-    error,
-    reloadAddresses,
-  } = useAddresses(
-    user?.id
-  );
+  addresses,
+  loading,
+  error,
+  reloadAddresses,
+} = useAddresses(
+  !!user
+);
 
   const [
     isEditorOpen,
@@ -312,9 +312,9 @@ const AddressesPage = () => {
   };
 
   const handleSave = async () => {
-    if (!user?.id) {
+    if (!user) {
       setSaveError(
-        "No fue posible identificar al cliente."
+        "No fue posible  al cliente."
       );
 
       return;
@@ -367,10 +367,9 @@ const AddressesPage = () => {
         editingAddressId !== null
       ) {
         await updateUserAddress(
-          user.id,
-          editingAddressId,
-          request
-        );
+  editingAddressId,
+  request
+);
 
         /*
          * Recarga silenciosa:
@@ -383,9 +382,8 @@ const AddressesPage = () => {
         );
       } else {
         await createUserAddress(
-          user.id,
-          request
-        );
+  request
+);
 
         await reloadAddresses(true);
 
@@ -416,7 +414,7 @@ const AddressesPage = () => {
     address: Address
   ) => {
     if (
-      !user?.id ||
+      !user ||
       address.defaultAddress
     ) {
       return;
@@ -431,9 +429,8 @@ const AddressesPage = () => {
       setSuccessMessage(null);
 
       await setDefaultUserAddress(
-        user.id,
-        address.id
-      );
+  address.id
+);
 
       /*
        * No mostramos el panel de carga.
@@ -487,9 +484,8 @@ const AddressesPage = () => {
       setSuccessMessage(null);
 
       await deleteUserAddress(
-        user.id,
-        address.id
-      );
+  address.id
+);
 
       await reloadAddresses(true);
 

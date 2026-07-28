@@ -2,10 +2,22 @@ package com.asthood.techstore.controller;
 
 import com.asthood.techstore.dto.AddressDTO;
 import com.asthood.techstore.service.AddressService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -18,87 +30,139 @@ public class AddressController {
     private final AddressService addressService;
 
     /*
-     * Crea una dirección.
+     * Crea una dirección para el usuario autenticado.
+     *
+     * El frontend no envía userId.
      */
-    @PostMapping("/user/{userId}")
-    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping
+    @ResponseStatus(
+            HttpStatus.CREATED
+    )
     public AddressDTO addAddress(
-            @PathVariable Long userId,
-            @RequestBody AddressDTO address
+            Authentication authentication,
+
+            @Valid
+            @RequestBody
+            AddressDTO address
     ) {
         return addressService
-                .addAddressToUser(
-                        userId,
+                .addAddress(
+                        getAuthenticatedEmail(
+                                authentication
+                        ),
                         address
                 );
     }
 
     /*
-     * Lista las direcciones del cliente.
+     * Lista exclusivamente las direcciones
+     * del usuario autenticado.
      */
-    @GetMapping("/user/{userId}")
+    @GetMapping
     public List<AddressDTO> getAddresses(
-            @PathVariable Long userId
+            Authentication authentication
     ) {
         return addressService
-                .getUserAddresses(
-                        userId
+                .getAddresses(
+                        getAuthenticatedEmail(
+                                authentication
+                        )
                 );
     }
 
     /*
-     * Actualiza una dirección.
+     * Actualiza una dirección perteneciente
+     * al usuario autenticado.
      */
-    @PutMapping(
-            "/user/{userId}/{addressId}"
-    )
+    @PutMapping("/{addressId}")
     public AddressDTO updateAddress(
-            @PathVariable Long userId,
-            @PathVariable Long addressId,
-            @RequestBody AddressDTO address
+            Authentication authentication,
+
+            @PathVariable
+            Long addressId,
+
+            @Valid
+            @RequestBody
+            AddressDTO address
     ) {
         return addressService
                 .updateAddress(
-                        userId,
+                        getAuthenticatedEmail(
+                                authentication
+                        ),
                         addressId,
                         address
                 );
     }
 
     /*
-     * Marca una dirección como predeterminada.
+     * Marca una dirección del usuario autenticado
+     * como predeterminada.
      */
     @PatchMapping(
-            "/user/{userId}/{addressId}/default"
+            "/{addressId}/default"
     )
     public AddressDTO setDefaultAddress(
-            @PathVariable Long userId,
-            @PathVariable Long addressId
+            Authentication authentication,
+
+            @PathVariable
+            Long addressId
     ) {
         return addressService
                 .setDefaultAddress(
-                        userId,
+                        getAuthenticatedEmail(
+                                authentication
+                        ),
                         addressId
                 );
     }
 
     /*
-     * Elimina una dirección.
+     * Elimina una dirección perteneciente
+     * al usuario autenticado.
      */
-    @DeleteMapping(
-            "/user/{userId}/{addressId}"
-    )
+    @DeleteMapping("/{addressId}")
     public ResponseEntity<Void> deleteAddress(
-            @PathVariable Long userId,
-            @PathVariable Long addressId
+            Authentication authentication,
+
+            @PathVariable
+            Long addressId
     ) {
         addressService.deleteAddress(
-                userId,
+                getAuthenticatedEmail(
+                        authentication
+                ),
                 addressId
         );
 
         return ResponseEntity
                 .noContent()
                 .build();
+    }
+
+    /*
+     * Obtiene el correo verificado por Spring Security.
+     *
+     * El controlador nunca acepta userId como mecanismo
+     * para determinar la propiedad de una dirección.
+     */
+    private String getAuthenticatedEmail(
+            Authentication authentication
+    ) {
+        if (
+                authentication == null ||
+                        !authentication.isAuthenticated() ||
+                        authentication.getName() == null ||
+                        authentication.getName()
+                                .isBlank()
+        ) {
+            throw new IllegalStateException(
+                    "La solicitud requiere una cuenta autenticada."
+            );
+        }
+
+        return authentication
+                .getName()
+                .trim();
     }
 }

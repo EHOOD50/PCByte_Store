@@ -62,6 +62,14 @@ interface StoredCheckoutState {
   addressData: CheckoutAddressData;
   shippingMethod: ShippingMethod | null;
   paymentMethod: PaymentMethod | null;
+
+  /*
+   * Representa los productos y cantidades que tenía
+   * el carrito cuando se guardó la sesión.
+   *
+   * Si cambia, el checkout vuelve al paso de despacho.
+   */
+  cartSignature: string;
 }
 
 interface PaymentNotice {
@@ -118,6 +126,37 @@ const isCheckoutStep = (
   );
 };
 
+/*
+ * Genera una firma estable a partir de:
+ *
+ * - ID del producto
+ * - cantidad
+ *
+ * El orden de los productos no afecta el resultado.
+ */
+const createCartSignature = (
+  cart: CartItem[]
+): string => {
+  return cart
+    .map((item) => ({
+      productId:
+        item.product.id,
+
+      quantity:
+        item.quantity,
+    }))
+    .sort(
+      (firstItem, secondItem) =>
+        firstItem.productId -
+        secondItem.productId
+    )
+    .map(
+      (item) =>
+        `${item.productId}:${item.quantity}`
+    )
+    .join("|");
+};
+
 const readStoredCheckout =
   (): StoredCheckoutState | null => {
     try {
@@ -162,6 +201,16 @@ const readStoredCheckout =
         paymentMethod:
           parsed.paymentMethod ??
           null,
+
+        /*
+         * Compatibilidad con sesiones creadas antes
+         * de agregar cartSignature.
+         */
+        cartSignature:
+          typeof parsed.cartSignature ===
+          "string"
+            ? parsed.cartSignature
+            : "",
       };
     } catch {
       return null;
@@ -214,32 +263,6 @@ const clearPendingOrderId =
     );
   };
 
-const getInitialStep =
-  (): CheckoutStep => {
-    const queryParameters =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    const paymentReturn =
-      queryParameters.get(
-        "payment"
-      );
-
-    if (
-      paymentReturn === "failure" ||
-      paymentReturn === "pending"
-    ) {
-      return "payment";
-    }
-
-    return (
-      readStoredCheckout()
-        ?.currentStep ??
-      "information"
-    );
-  };
-
 export const CheckoutPage = ({
   cart,
   total,
@@ -257,12 +280,65 @@ export const CheckoutPage = ({
     isAuthenticated,
   } = useAuth();
 
+  /*
+   * Determina el paso inicial.
+   *
+   * Reglas:
+   *
+   * 1. Si vuelve desde Mercado Pago con failure o pending,
+   *    regresa al paso de pago.
+   *
+   * 2. Si no existe una sesión previa, comienza en datos.
+   *
+   * 3. Si el carrito cambió respecto de la sesión guardada,
+   *    vuelve al paso de despacho.
+   *
+   * 4. Si el carrito no cambió, retoma el último paso.
+   */
   const [
     currentStep,
     setCurrentStep,
-  ] = useState<CheckoutStep>(
-    getInitialStep
-  );
+  ] = useState<CheckoutStep>(() => {
+    const queryParameters =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    const paymentReturn =
+      queryParameters.get(
+        "payment"
+      );
+
+    if (
+      paymentReturn === "failure" ||
+      paymentReturn === "pending"
+    ) {
+      return "payment";
+    }
+
+    const storedCheckout =
+      readStoredCheckout();
+
+    if (!storedCheckout) {
+      return "information";
+    }
+
+    const currentCartSignature =
+      createCartSignature(
+        cart
+      );
+
+    if (
+      storedCheckout.cartSignature !==
+      "" &&
+      storedCheckout.cartSignature !==
+        currentCartSignature
+    ) {
+      return "shipping";
+    }
+
+    return storedCheckout.currentStep;
+  });
 
   const [
     informationData,
@@ -342,6 +418,10 @@ export const CheckoutPage = ({
     }
   );
 
+  /*
+   * Completa los datos del comprador cuando
+   * existe un usuario autenticado.
+   */
   useEffect(() => {
     if (
       !isAuthenticated ||
@@ -378,6 +458,18 @@ export const CheckoutPage = ({
     user,
   ]);
 
+  /*
+   * Guarda continuamente la sesión del checkout.
+   *
+   * Conserva:
+   *
+   * - paso actual
+   * - comprador
+   * - dirección
+   * - despacho
+   * - pago
+   * - firma del carrito
+   */
   useEffect(() => {
     const storedState: StoredCheckoutState =
       {
@@ -386,6 +478,11 @@ export const CheckoutPage = ({
         addressData,
         shippingMethod,
         paymentMethod,
+
+        cartSignature:
+          createCartSignature(
+            cart
+          ),
       };
 
     sessionStorage.setItem(
@@ -400,8 +497,12 @@ export const CheckoutPage = ({
     addressData,
     shippingMethod,
     paymentMethod,
+    cart,
   ]);
 
+  /*
+   * Procesa el regreso desde Mercado Pago.
+   */
   useEffect(() => {
     const queryParameters =
       new URLSearchParams(
@@ -744,6 +845,10 @@ export const CheckoutPage = ({
           )
         );
 
+        /*
+         * Antes de salir hacia Mercado Pago, registra
+         * explícitamente el estado exacto de la compra.
+         */
         const storedState: StoredCheckoutState =
           {
             currentStep:
@@ -753,6 +858,11 @@ export const CheckoutPage = ({
             addressData,
             shippingMethod,
             paymentMethod,
+
+            cartSignature:
+              createCartSignature(
+                cart
+              ),
           };
 
         sessionStorage.setItem(
@@ -826,6 +936,15 @@ export const CheckoutPage = ({
       }
     };
 
+  /*
+   * Se utiliza después de una compra completada.
+   *
+   * En ese caso sí corresponde limpiar:
+   *
+   * - sesión
+   * - orden pendiente
+   * - carrito
+   */
   const handleGoToCatalog =
     () => {
       sessionStorage.removeItem(

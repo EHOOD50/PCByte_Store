@@ -13,7 +13,7 @@ import type {
 } from "../types/types";
 
 export function useAddresses(
-  userId?: number
+  enabled = true
 ) {
   const [
     addresses,
@@ -44,7 +44,7 @@ export function useAddresses(
       async (
         silent = false
       ) => {
-        if (!userId) {
+        if (!enabled) {
           setAddresses([]);
           setLoading(false);
           setError(null);
@@ -59,11 +59,11 @@ export function useAddresses(
           setError(null);
 
           const response =
-            await getUserAddresses(
-              userId
-            );
+            await getUserAddresses();
 
-          setAddresses(response);
+          setAddresses(
+            response
+          );
         } catch (err) {
           console.error(
             "No fue posible obtener las direcciones:",
@@ -80,7 +80,7 @@ export function useAddresses(
         }
       },
       [
-        userId,
+        enabled,
       ]
     );
 

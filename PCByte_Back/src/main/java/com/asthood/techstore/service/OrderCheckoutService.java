@@ -143,60 +143,162 @@ public class OrderCheckoutService {
 
         if (pendingOrder == null) {
             log.info(
-                    "La orden #{} no puede reutilizarse. Se creará una nueva.",
+                    "La orden #{} no existe, no pertenece al comprador o ya no está pendiente. Se creará una nueva.",
                     pendingOrderId
             );
 
             return null;
         }
 
+        updatePendingOrder(
+                pendingOrder,
+                orderRequest,
+                email,
+                preparedItems
+        );
+
+        Order updatedOrder =
+                orderRepository.save(
+                        pendingOrder
+                );
+
+        log.info(
+                "Orden pendiente #{} actualizada para un nuevo intento de pago.",
+                updatedOrder.getId()
+        );
+
+        return updatedOrder;
+    }
+
+    private void updatePendingOrder(
+            Order pendingOrder,
+            OrderRequestDTO orderRequest,
+            String email,
+            PreparedItems preparedItems
+    ) {
         if (
-                !sameAddress(
-                        pendingOrder,
+                pendingOrder.getStatus()
+                        != OrderStatus.PENDIENTE
+        ) {
+            throw new IllegalStateException(
+                    "Solo se pueden modificar órdenes pendientes."
+            );
+        }
+
+        String fullName =
+                normalizeName(
                         orderRequest
+                                .getPayer()
+                                .getName()
+                );
+
+        pendingOrder.setFullName(
+                fullName
+        );
+
+        pendingOrder.setEmail(
+                email
+        );
+
+        pendingOrder.setPhone(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getPhone()
                 )
-        ) {
-            log.info(
-                    "La dirección de la orden #{} cambió. Se creará una nueva.",
-                    pendingOrderId
-            );
+        );
 
-            return null;
-        }
-
-        if (
-                !sameItems(
-                        pendingOrder,
-                        preparedItems.quantities()
+        pendingOrder.setStreet(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getStreet()
                 )
-        ) {
-            log.info(
-                    "Los productos de la orden #{} cambiaron. Se creará una nueva.",
-                    pendingOrderId
-            );
+        );
 
-            return null;
+        pendingOrder.setNumber(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getNumber()
+                )
+        );
+
+        pendingOrder.setApartment(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getApartment()
+                )
+        );
+
+        pendingOrder.setCity(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getCity()
+                )
+        );
+
+        pendingOrder.setRegion(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getRegion()
+                )
+        );
+
+        pendingOrder.setExtraInfo(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getExtraInfo()
+                )
+        );
+
+        replaceOrderItems(
+                pendingOrder,
+                preparedItems.items()
+        );
+
+        pendingOrder.setTotal(
+                preparedItems.total()
+        );
+    }
+
+    private void replaceOrderItems(
+            Order order,
+            List<PreparedItem> preparedItems
+    ) {
+        if (order.getOrderItems() == null) {
+            throw new IllegalStateException(
+                    "La colección de productos de la orden no está inicializada."
+            );
         }
 
-        if (
-                pendingOrder.getTotal() == null
-                        || pendingOrder
-                        .getTotal()
-                        .compareTo(
-                                preparedItems.total()
-                        ) != 0
+        order.getOrderItems().clear();
+
+        for (
+                PreparedItem preparedItem
+                : preparedItems
         ) {
-            log.info(
-                    "El total de la orden #{} cambió. Total anterior: {}, total actual: {}.",
-                    pendingOrderId,
-                    pendingOrder.getTotal(),
-                    preparedItems.total()
+            OrderItem orderItem =
+                    OrderItem.builder()
+                            .product(
+                                    preparedItem.product()
+                            )
+                            .quantity(
+                                    preparedItem.quantity()
+                            )
+                            .price(
+                                    preparedItem.unitPrice()
+                            )
+                            .build();
+
+            order.addOrderItem(
+                    orderItem
             );
-
-            return null;
         }
-
-        return pendingOrder;
     }
 
     private boolean sameItems(

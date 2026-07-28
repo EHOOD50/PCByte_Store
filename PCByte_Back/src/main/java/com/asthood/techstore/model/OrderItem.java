@@ -2,6 +2,7 @@ package com.asthood.techstore.model;
 
 import com.asthood.techstore.domain.entity.Product;
 import jakarta.persistence.*;
+
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;

@@ -122,12 +122,13 @@ export default function AddressSelector({
   } = useAuth();
 
   const {
-    addresses,
-    loading,
-    error,
-    reloadAddresses,
-  } = useAddresses(user?.id);
-
+  addresses,
+  loading,
+  error,
+  reloadAddresses,
+} = useAddresses(
+  isAuthenticated
+);
   const [
     useNewAddress,
     setUseNewAddress,
@@ -408,35 +409,32 @@ export default function AddressSelector({
             : null;
 
         const savedAddress =
-          await createUserAddress(
-            user.id,
-            {
-              label:
-                addressFormData.label.trim(),
+  await createUserAddress({
+    label:
+      addressFormData.label.trim(),
 
-              street:
-                addressFormData.street.trim(),
+    street:
+      addressFormData.street.trim(),
 
-              number:
-                addressFormData.number.trim(),
+    number:
+      addressFormData.number.trim(),
 
-              apartment,
+    apartment,
 
-              city:
-                addressFormData.city.trim(),
+    city:
+      addressFormData.city.trim(),
 
-              region:
-                addressFormData.region.trim(),
+    region:
+      addressFormData.region.trim(),
 
-              extraInfo:
-                addressFormData.extraInfo.trim() ||
-                null,
+    extraInfo:
+      addressFormData.extraInfo.trim() ||
+      null,
 
-              defaultAddress:
-                addresses.length === 0 ||
-                addressFormData.defaultAddress,
-            }
-          );
+    defaultAddress:
+      addresses.length === 0 ||
+      addressFormData.defaultAddress,
+  });
 
         setPreferredAddressId(
           savedAddress.id

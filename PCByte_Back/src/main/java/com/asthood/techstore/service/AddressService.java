@@ -6,31 +6,44 @@ import com.asthood.techstore.model.Address;
 import com.asthood.techstore.model.User;
 import com.asthood.techstore.repository.AddressRepository;
 import com.asthood.techstore.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class AddressService {
 
     private final AddressRepository addressRepository;
+
     private final UserRepository userRepository;
 
     /*
-     * Crea una nueva dirección para el cliente.
+     * Crea una nueva dirección para el usuario autenticado.
      *
      * La primera dirección se establece automáticamente
      * como predeterminada.
      */
     @Transactional
-    public AddressDTO addAddressToUser(
-            Long userId,
+    public AddressDTO addAddress(
+            String authenticatedEmail,
             AddressDTO request
     ) {
-        User user = findUser(userId);
+        validateRequest(
+                request
+        );
+
+        User user =
+                findAuthenticatedUser(
+                        authenticatedEmail
+                );
+
+        Long userId =
+                user.getId();
 
         boolean firstAddress =
                 addressRepository
@@ -44,52 +57,59 @@ public class AddressService {
                         request.isDefaultAddress();
 
         if (shouldBeDefault) {
-            clearDefaultAddress(userId);
+            clearDefaultAddress(
+                    userId
+            );
         }
 
-        Address address = Address.builder()
-                .label(
-                        normalizeLabel(
-                                request.getLabel()
+        Address address =
+                Address.builder()
+                        .label(
+                                normalizeLabel(
+                                        request.getLabel()
+                                )
                         )
-                )
-                .street(
-                        normalizeRequired(
-                                request.getStreet(),
-                                "La calle es obligatoria."
+                        .street(
+                                normalizeRequired(
+                                        request.getStreet(),
+                                        "La calle es obligatoria."
+                                )
                         )
-                )
-                .number(
-                        normalizeRequired(
-                                request.getNumber(),
-                                "El número es obligatorio."
+                        .number(
+                                normalizeRequired(
+                                        request.getNumber(),
+                                        "El número es obligatorio."
+                                )
                         )
-                )
-                .apartment(
-                        normalizeNullable(
-                                request.getApartment()
+                        .apartment(
+                                normalizeNullable(
+                                        request.getApartment()
+                                )
                         )
-                )
-                .city(
-                        normalizeRequired(
-                                request.getCity(),
-                                "La comuna es obligatoria."
+                        .city(
+                                normalizeRequired(
+                                        request.getCity(),
+                                        "La comuna es obligatoria."
+                                )
                         )
-                )
-                .region(
-                        normalizeRequired(
-                                request.getRegion(),
-                                "La región es obligatoria."
+                        .region(
+                                normalizeRequired(
+                                        request.getRegion(),
+                                        "La región es obligatoria."
+                                )
                         )
-                )
-                .extraInfo(
-                        normalizeNullable(
-                                request.getExtraInfo()
+                        .extraInfo(
+                                normalizeNullable(
+                                        request.getExtraInfo()
+                                )
                         )
-                )
-                .isDefault(shouldBeDefault)
-                .user(user)
-                .build();
+                        .isDefault(
+                                shouldBeDefault
+                        )
+                        .user(
+                                user
+                        )
+                        .build();
 
         Address savedAddress =
                 addressRepository.save(
@@ -102,37 +122,53 @@ public class AddressService {
     }
 
     /*
-     * Obtiene las direcciones del cliente manteniendo
-     * siempre un orden estable por ID.
+     * Obtiene exclusivamente las direcciones
+     * del usuario autenticado.
      */
     @Transactional(readOnly = true)
-    public List<AddressDTO> getUserAddresses(
-            Long userId
+    public List<AddressDTO> getAddresses(
+            String authenticatedEmail
     ) {
-        validateUserExists(userId);
+        User user =
+                findAuthenticatedUser(
+                        authenticatedEmail
+                );
 
         return addressRepository
                 .findByUserIdOrderByIdAsc(
-                        userId
+                        user.getId()
                 )
                 .stream()
-                .map(AddressMapper::toDTO)
+                .map(
+                        AddressMapper::toDTO
+                )
                 .toList();
     }
 
     /*
-     * Actualiza una dirección existente.
+     * Actualiza una dirección solamente cuando pertenece
+     * al usuario autenticado.
      */
     @Transactional
     public AddressDTO updateAddress(
-            Long userId,
+            String authenticatedEmail,
             Long addressId,
             AddressDTO request
     ) {
-        validateUserExists(userId);
+        validateRequest(
+                request
+        );
+
+        User user =
+                findAuthenticatedUser(
+                        authenticatedEmail
+                );
+
+        Long userId =
+                user.getId();
 
         Address address =
-                findUserAddress(
+                findOwnedAddress(
                         userId,
                         addressId
                 );
@@ -148,7 +184,9 @@ public class AddressService {
                 request.isDefaultAddress() &&
                         !wasDefault
         ) {
-            clearDefaultAddress(userId);
+            clearDefaultAddress(
+                    userId
+            );
         }
 
         address.setLabel(
@@ -212,29 +250,39 @@ public class AddressService {
     }
 
     /*
-     * Marca una dirección como predeterminada sin
-     * cambiar el orden en que se muestran.
+     * Marca una dirección perteneciente al usuario
+     * autenticado como predeterminada.
      */
     @Transactional
     public AddressDTO setDefaultAddress(
-            Long userId,
+            String authenticatedEmail,
             Long addressId
     ) {
-        validateUserExists(userId);
+        User user =
+                findAuthenticatedUser(
+                        authenticatedEmail
+                );
+
+        Long userId =
+                user.getId();
 
         Address selectedAddress =
-                findUserAddress(
+                findOwnedAddress(
                         userId,
                         addressId
                 );
 
-        if (selectedAddress.isDefault()) {
+        if (
+                selectedAddress.isDefault()
+        ) {
             return AddressMapper.toDTO(
                     selectedAddress
             );
         }
 
-        clearDefaultAddress(userId);
+        clearDefaultAddress(
+                userId
+        );
 
         selectedAddress.setDefault(
                 true
@@ -251,20 +299,27 @@ public class AddressService {
     }
 
     /*
-     * Elimina una dirección.
+     * Elimina una dirección solamente cuando pertenece
+     * al usuario autenticado.
      *
-     * Si se elimina la predeterminada, la primera
-     * dirección restante por ID pasa a ser principal.
+     * Si se elimina la predeterminada, la primera dirección
+     * restante se establece como principal.
      */
     @Transactional
     public void deleteAddress(
-            Long userId,
+            String authenticatedEmail,
             Long addressId
     ) {
-        validateUserExists(userId);
+        User user =
+                findAuthenticatedUser(
+                        authenticatedEmail
+                );
+
+        Long userId =
+                user.getId();
 
         Address address =
-                findUserAddress(
+                findOwnedAddress(
                         userId,
                         addressId
                 );
@@ -278,7 +333,9 @@ public class AddressService {
 
         addressRepository.flush();
 
-        if (deletedAddressWasDefault) {
+        if (
+                deletedAddressWasDefault
+        ) {
             addressRepository
                     .findFirstByUserIdOrderByIdAsc(
                             userId
@@ -298,7 +355,8 @@ public class AddressService {
     }
 
     /*
-     * Desmarca la dirección predeterminada actual.
+     * Desmarca la dirección predeterminada actual
+     * del usuario indicado.
      */
     private void clearDefaultAddress(
             Long userId
@@ -320,60 +378,111 @@ public class AddressService {
                 );
     }
 
-    private User findUser(
-            Long userId
+    /*
+     * Resuelve al propietario exclusivamente mediante
+     * el correo entregado por Spring Security.
+     *
+     * Nunca utiliza un userId recibido desde el navegador.
+     */
+    private User findAuthenticatedUser(
+            String authenticatedEmail
     ) {
-        if (userId == null) {
-            throw new IllegalArgumentException(
-                    "El identificador del usuario es obligatorio."
-            );
-        }
+        String normalizedEmail =
+                normalizeEmail(
+                        authenticatedEmail
+                );
 
         return userRepository
-                .findById(userId)
+                .findByEmail(
+                        normalizedEmail
+                )
                 .orElseThrow(
                         () ->
-                                new IllegalArgumentException(
-                                        "Usuario no encontrado."
+                                new EntityNotFoundException(
+                                        "No fue posible encontrar la cuenta autenticada."
                                 )
                 );
     }
 
-    private void validateUserExists(
-            Long userId
-    ) {
-        if (
-                userId == null ||
-                        !userRepository.existsById(
-                                userId
-                        )
-        ) {
-            throw new IllegalArgumentException(
-                    "Usuario no encontrado."
-            );
-        }
-    }
-
-    private Address findUserAddress(
-            Long userId,
+    /*
+     * Busca la dirección utilizando simultáneamente:
+     *
+     * - addressId;
+     * - ID del propietario autenticado.
+     *
+     * Si la dirección existe pero pertenece a otra cuenta,
+     * se responde igualmente como recurso no encontrado.
+     * Así no revelamos información sobre recursos ajenos.
+     */
+    private Address findOwnedAddress(
+            Long authenticatedUserId,
             Long addressId
     ) {
-        if (addressId == null) {
+        validateAddressId(
+                addressId
+        );
+
+        return addressRepository
+                .findByIdAndUserId(
+                        addressId,
+                        authenticatedUserId
+                )
+                .orElseThrow(
+                        () ->
+                                new EntityNotFoundException(
+                                        "Dirección no encontrada."
+                                )
+                );
+    }
+
+    private void validateAddressId(
+            Long addressId
+    ) {
+        if (
+                addressId == null
+        ) {
             throw new IllegalArgumentException(
                     "El identificador de la dirección es obligatorio."
             );
         }
 
-        return addressRepository
-                .findByIdAndUserId(
-                        addressId,
-                        userId
-                )
-                .orElseThrow(
-                        () ->
-                                new IllegalArgumentException(
-                                        "Dirección no encontrada para el usuario indicado."
-                                )
+        if (
+                addressId <= 0
+        ) {
+            throw new IllegalArgumentException(
+                    "El identificador de la dirección debe ser mayor que cero."
+            );
+        }
+    }
+
+    private void validateRequest(
+            AddressDTO request
+    ) {
+        if (
+                request == null
+        ) {
+            throw new IllegalArgumentException(
+                    "Los datos de la dirección son obligatorios."
+            );
+        }
+    }
+
+    private String normalizeEmail(
+            String email
+    ) {
+        if (
+                email == null ||
+                        email.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "No fue posible identificar al usuario autenticado."
+            );
+        }
+
+        return email
+                .trim()
+                .toLowerCase(
+                        Locale.ROOT
                 );
     }
 
@@ -387,7 +496,9 @@ public class AddressService {
             return "Principal";
         }
 
-        return normalizeText(value);
+        return normalizeText(
+                value
+        );
     }
 
     private String normalizeRequired(
@@ -403,7 +514,9 @@ public class AddressService {
             );
         }
 
-        return normalizeText(value);
+        return normalizeText(
+                value
+        );
     }
 
     private String normalizeNullable(
@@ -416,7 +529,9 @@ public class AddressService {
             return null;
         }
 
-        return normalizeText(value);
+        return normalizeText(
+                value
+        );
     }
 
     private String normalizeText(

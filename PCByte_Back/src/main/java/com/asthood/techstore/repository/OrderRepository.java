@@ -2,6 +2,7 @@ package com.asthood.techstore.repository;
 
 import com.asthood.techstore.model.Order;
 import com.asthood.techstore.model.OrderStatus;
+
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
