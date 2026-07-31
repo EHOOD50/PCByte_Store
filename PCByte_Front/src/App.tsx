@@ -27,14 +27,20 @@ import {
   useAuth,
 } from "./hooks/useAuth";
 
+// Rutas administrativas
+import AdminProtectedRoute from "./routes/AdminProtectedRoute";
+
 // Componentes
 import Navbar from "./components/layout/Navbar";
 import Cart from "./components/Cart";
-import AdminDashboard from "./components/AdminDashboard";
 import SuccessPage from "./components/SuccessPage";
 import WhatsAppWidget from "./components/WhatsAppWidget";
 
-// Páginas
+// Páginas administrativas
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
+
+// Páginas públicas
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
@@ -134,17 +140,19 @@ function App() {
   ] = useState(false);
 
   const [
-    isAdmin,
-    setIsAdmin,
-  ] = useState(false);
-
-  const [
     currentPage,
     setCurrentPage,
   ] = useState(1);
 
   const productsPerPage =
     12;
+
+  const isAdminRoute =
+    location.pathname ===
+      "/admin" ||
+    location.pathname.startsWith(
+      "/admin/"
+    );
 
   useLayoutEffect(() => {
     if (
@@ -543,6 +551,49 @@ function App() {
       0
     );
 
+  /*
+   * Las rutas administrativas se renderizan fuera del
+   * layout público.
+   *
+   * De esta forma no heredan:
+   *
+   * - Navbar de la tienda.
+   * - Carrito.
+   * - Widget de WhatsApp.
+   * - Fondo y estructura del sitio público.
+   */
+  if (isAdminRoute) {
+    return (
+      <Routes>
+        <Route
+          path="/admin/login"
+          element={
+            <AdminLoginPage />
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboardPage />
+            </AdminProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/*"
+          element={
+            <Navigate
+              to="/admin"
+              replace
+            />
+          }
+        />
+      </Routes>
+    );
+  }
+
   if (
     isLoadingAuth
   ) {
@@ -552,18 +603,6 @@ function App() {
           Cargando PCByte...
         </p>
       </div>
-    );
-  }
-
-  if (isAdmin) {
-    return (
-      <AdminDashboard
-        onLogout={() =>
-          setIsAdmin(
-            false
-          )
-        }
-      />
     );
   }
 
@@ -593,8 +632,8 @@ function App() {
             )
           }
           onOpenAdmin={() =>
-            setIsAdmin(
-              true
+            navigate(
+              "/admin/login"
             )
           }
           onGoHome={() =>

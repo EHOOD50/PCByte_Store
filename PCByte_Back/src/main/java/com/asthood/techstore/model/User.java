@@ -66,6 +66,14 @@ public class User {
     private UserStatus status =
             UserStatus.INVITADO;
 
+    @Enumerated(EnumType.STRING)
+    @Column(
+            nullable = false,
+            length = 20
+    )
+    @Builder.Default
+    private UserRole role =
+            UserRole.USER;
     /*
      * Fecha en que se creó el registro.
      */

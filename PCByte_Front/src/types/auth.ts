@@ -4,6 +4,10 @@ export type UserStatus =
   | "REGISTRADO"
   | "BLOQUEADO";
 
+export type UserRole =
+  | "CUSTOMER"
+  | "ADMIN";
+
 export interface AuthUser {
   id: number;
 
@@ -15,6 +19,7 @@ export interface AuthUser {
   phone?: string | null;
 
   status: UserStatus;
+  role: UserRole;
 }
 
 export interface AuthSession {

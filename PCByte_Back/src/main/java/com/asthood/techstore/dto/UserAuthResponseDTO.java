@@ -1,5 +1,6 @@
 package com.asthood.techstore.dto;
 
+import com.asthood.techstore.model.UserRole;
 import com.asthood.techstore.model.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,4 +24,6 @@ public class UserAuthResponseDTO {
     private String phone;
 
     private UserStatus status;
+
+    private UserRole role;
 }

@@ -41,6 +41,10 @@ spring:
           timeout: 5000
           writetimeout: 5000
 
+admin:
+  email: admin@pcbyte.cl
+  password: Cambiar123!
+
 mercadopago:
   access:
     token: ${MP_ACCESS_TOKEN}
@@ -53,7 +57,6 @@ app:
   verification:
     max-requests-per-hour: 5
     resend-cooldown-seconds: 60
-
     email-verification-expiration-hours: 24
     guest-checkout-expiration-minutes: 10
     guest-account-conversion-expiration-hours: 1

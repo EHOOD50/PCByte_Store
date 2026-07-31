@@ -842,9 +842,11 @@ public class AuthService {
                 .status(
                         user.getStatus()
                 )
+                .role(
+                        user.getRole()
+                )
                 .build();
     }
-
     private void validateRegisterRequest(
             RegisterRequestDTO request
     ) {

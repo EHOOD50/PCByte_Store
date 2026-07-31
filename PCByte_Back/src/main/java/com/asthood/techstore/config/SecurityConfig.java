@@ -1,5 +1,6 @@
 package com.asthood.techstore.config;
 
+import com.asthood.techstore.model.UserRole;
 import com.asthood.techstore.model.UserStatus;
 import com.asthood.techstore.repository.UserRepository;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,6 +21,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 @Configuration
 public class SecurityConfig {
@@ -31,8 +33,7 @@ public class SecurityConfig {
      * {bcrypt}
      * {noop}
      *
-     * El acceso administrativo temporal todavía utiliza
-     * {noop}, pero será reemplazado en el sprint administrativo.
+     * Las nuevas contraseñas se codifican mediante bcrypt.
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -65,8 +66,11 @@ public class SecurityConfig {
                 )
 
                 /*
-                 * Evita que el navegador muestre el cuadro
-                 * automático de usuario y contraseña.
+                 * La autenticación utiliza HTTP Basic.
+                 *
+                 * Se personaliza la respuesta para evitar que
+                 * el navegador muestre su cuadro automático
+                 * de usuario y contraseña.
                  */
                 .httpBasic(
                         basic ->
@@ -85,10 +89,8 @@ public class SecurityConfig {
                 )
 
                 /*
-                 * La autenticación actual es stateless.
-                 *
                  * Cada solicitud protegida debe incluir
-                 * sus credenciales Basic.
+                 * sus credenciales.
                  */
                 .sessionManagement(
                         session ->
@@ -103,8 +105,7 @@ public class SecurityConfig {
                                 authorization
 
                                         /*
-                                         * Permite las solicitudes preflight
-                                         * enviadas por el navegador.
+                                         * Solicitudes preflight del navegador.
                                          */
                                         .requestMatchers(
                                                 HttpMethod.OPTIONS,
@@ -124,9 +125,6 @@ public class SecurityConfig {
 
                                         /*
                                          * Flujo público de pagos.
-                                         *
-                                         * Conservamos la configuración actual
-                                         * para no romper checkout ni webhook.
                                          */
                                         .requestMatchers(
                                                 "/api/payments/**"
@@ -135,9 +133,6 @@ public class SecurityConfig {
 
                                         /*
                                          * Registro y verificación de correo.
-                                         *
-                                         * Estos endpoints deben funcionar antes
-                                         * de que exista una sesión autenticada.
                                          */
                                         .requestMatchers(
                                                 HttpMethod.POST,
@@ -153,11 +148,11 @@ public class SecurityConfig {
                                         .permitAll()
 
                                         /*
-                                         * Login mediante HTTP Basic.
+                                         * Login de clientes y administradores.
                                          *
-                                         * Spring Security debe autenticar las
-                                         * credenciales antes de ejecutar el
-                                         * controlador.
+                                         * Spring Security valida primero las
+                                         * credenciales almacenadas en la base
+                                         * de datos.
                                          */
                                         .requestMatchers(
                                                 HttpMethod.POST,
@@ -166,7 +161,7 @@ public class SecurityConfig {
                                         .authenticated()
 
                                         /*
-                                         * Operaciones privadas de la cuenta.
+                                         * Operaciones privadas de clientes.
                                          */
                                         .requestMatchers(
                                                 HttpMethod.GET,
@@ -182,7 +177,8 @@ public class SecurityConfig {
                                         .hasRole("USER")
 
                                         /*
-                                         * Panel administrativo temporal.
+                                         * Toda la API administrativa requiere
+                                         * una cuenta real con rol ADMIN.
                                          */
                                         .requestMatchers(
                                                 "/api/admin/**"
@@ -190,15 +186,8 @@ public class SecurityConfig {
                                         .hasRole("ADMIN")
 
                                         /*
-                                         * Conservamos públicas las demás rutas
-                                         * existentes para no modificar todavía
-                                         * otros flujos del proyecto.
-                                         *
-                                         * Posteriormente revisaremos cada grupo
-                                         * de endpoints y aplicaremos permisos
-                                         * específicos.
+                                         * Gestión privada de direcciones.
                                          */
-
                                         .requestMatchers(
                                                 HttpMethod.GET,
                                                 "/api/addresses",
@@ -230,7 +219,11 @@ public class SecurityConfig {
                                         )
                                         .hasRole("USER")
 
-
+                                        /*
+                                         * Conservamos temporalmente públicas
+                                         * las rutas restantes para no alterar
+                                         * otros flujos del proyecto.
+                                         */
                                         .anyRequest()
                                         .permitAll()
                 );
@@ -239,28 +232,31 @@ public class SecurityConfig {
     }
 
     /*
-     * Resuelve las credenciales utilizadas por HTTP Basic.
+     * Resuelve desde la base de datos las credenciales
+     * de clientes y administradores.
      *
-     * Mientras continúe pendiente el sprint administrativo,
-     * se conserva el acceso temporal admin / 1234.
+     * El permiso de Spring Security se obtiene directamente
+     * desde UserRole:
+     *
+     * USER  -> ROLE_USER
+     * ADMIN -> ROLE_ADMIN
      */
     @Bean
     public UserDetailsService userDetailsService(
             UserRepository userRepository
     ) {
-        return email -> {
-            if ("admin".equals(email)) {
-                return User
-                        .withUsername("admin")
-                        .password("{noop}1234")
-                        .roles("ADMIN")
-                        .build();
-            }
+        return username -> {
+            String normalizedEmail =
+                    username
+                            .trim()
+                            .toLowerCase(
+                                    Locale.ROOT
+                            );
 
-            com.asthood.techstore.model.User customer =
+            com.asthood.techstore.model.User account =
                     userRepository
                             .findByEmail(
-                                    email
+                                    normalizedEmail
                             )
                             .orElseThrow(
                                     () ->
@@ -270,7 +266,7 @@ public class SecurityConfig {
                             );
 
             if (
-                    customer.getStatus() ==
+                    account.getStatus() ==
                             UserStatus
                                     .EMAIL_PENDIENTE_VERIFICACION
             ) {
@@ -280,7 +276,7 @@ public class SecurityConfig {
             }
 
             if (
-                    customer.getStatus() ==
+                    account.getStatus() ==
                             UserStatus.BLOQUEADO
             ) {
                 throw new UsernameNotFoundException(
@@ -289,25 +285,36 @@ public class SecurityConfig {
             }
 
             if (
-                    customer.getStatus() !=
+                    account.getStatus() !=
                             UserStatus.REGISTRADO ||
-                            !customer.isEmailVerified() ||
-                            customer.getPassword() == null ||
-                            customer.getPassword().isBlank()
+                            !account.isEmailVerified() ||
+                            account.getPassword() == null ||
+                            account.getPassword().isBlank()
             ) {
                 throw new UsernameNotFoundException(
                         "El usuario no tiene una cuenta activa."
                 );
             }
 
+            UserRole role =
+                    account.getRole();
+
+            if (role == null) {
+                throw new UsernameNotFoundException(
+                        "La cuenta no tiene un rol válido."
+                );
+            }
+
             return User
                     .withUsername(
-                            customer.getEmail()
+                            account.getEmail()
                     )
                     .password(
-                            customer.getPassword()
+                            account.getPassword()
                     )
-                    .roles("USER")
+                    .roles(
+                            role.name()
+                    )
                     .build();
         };
     }
