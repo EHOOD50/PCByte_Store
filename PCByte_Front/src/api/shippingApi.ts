@@ -1,4 +1,4 @@
-import api from "./axios";
+import api from "./adminApi";
 import type { ShippingRate } from "../types/shipping";
 
 export const getShippingRates = async () => {

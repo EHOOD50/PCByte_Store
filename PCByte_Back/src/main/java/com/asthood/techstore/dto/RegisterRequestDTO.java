@@ -2,6 +2,7 @@ package com.asthood.techstore.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,25 +14,16 @@ import lombok.Setter;
 public class RegisterRequestDTO {
 
     @NotBlank(message = "El nombre es obligatorio")
-    @Size(
-            max = 100,
-            message = "El nombre no puede superar 100 caracteres"
-    )
+    @Size(max = 100, message = "El nombre no puede superar 100 caracteres")
     private String firstName;
 
     @NotBlank(message = "El apellido es obligatorio")
-    @Size(
-            max = 100,
-            message = "El apellido no puede superar 100 caracteres"
-    )
+    @Size(max = 100, message = "El apellido no puede superar 100 caracteres")
     private String lastName;
 
     @NotBlank(message = "El correo es obligatorio")
     @Email(message = "El correo no tiene un formato válido")
-    @Size(
-            max = 255,
-            message = "El correo no puede superar 255 caracteres"
-    )
+    @Size(max = 255, message = "El correo no puede superar 255 caracteres")
     private String email;
 
     @NotBlank(message = "La contraseña es obligatoria")
@@ -42,64 +34,31 @@ public class RegisterRequestDTO {
     )
     private String password;
 
-    @Size(
-            max = 30,
-            message = "El teléfono no puede superar 30 caracteres"
+    @Pattern(
+            regexp = "^[0-9+()\\-\\s]*$",
+            message = "El teléfono contiene caracteres no permitidos."
     )
+    @Size(max = 25, message = "El teléfono no puede superar 25 caracteres")
     private String phone;
 
-    @Size(
-            max = 50,
-            message = "La etiqueta no puede superar 50 caracteres"
-    )
+    @Size(max = 50, message = "La etiqueta no puede superar 50 caracteres")
     private String addressLabel;
 
-    @Size(
-            max = 150,
-            message = "La calle no puede superar 150 caracteres"
-    )
+    @Size(max = 150, message = "La calle no puede superar 150 caracteres")
     private String street;
 
-    @Size(
-            max = 30,
-            message = "El número no puede superar 30 caracteres"
-    )
+    @Size(max = 20, message = "El número no puede superar 20 caracteres")
     private String number;
 
-    /*
-     * Aquí se guardará el complemento concatenado:
-     *
-     * Departamento 1203
-     * Torre B
-     * Block 4
-     * Parcela 7
-     * Sitio 12
-     */
-    @Size(
-            max = 100,
-            message = "El complemento de dirección no puede superar 100 caracteres"
-    )
+    @Size(max = 50, message = "El departamento no puede superar 50 caracteres")
     private String apartment;
 
-    @Size(
-            max = 100,
-            message = "La comuna no puede superar 100 caracteres"
-    )
+    @Size(max = 100, message = "La ciudad no puede superar 100 caracteres")
     private String city;
 
-    @Size(
-            max = 100,
-            message = "La región no puede superar 100 caracteres"
-    )
+    @Size(max = 100, message = "La región no puede superar 100 caracteres")
     private String region;
 
-    /*
-     * Referencias libres para facilitar el despacho.
-     * Ejemplo: Alameda entre Maipú y Chacabuco.
-     */
-    @Size(
-            max = 255,
-            message = "La referencia para el despacho no puede superar 255 caracteres"
-    )
+    @Size(max = 255, message = "La información adicional no puede superar 255 caracteres")
     private String extraInfo;
 }

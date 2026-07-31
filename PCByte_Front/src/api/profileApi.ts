@@ -27,6 +27,34 @@ const createAuthConfig = (
   };
 };
 
+const createBasicAuthToken = (
+  email: string,
+  password: string
+): string => {
+  const credentials =
+    `${email
+      .trim()
+      .toLowerCase()}:${password}`;
+
+  const encodedCredentials =
+    new TextEncoder().encode(
+      credentials
+    );
+
+  let binaryCredentials = "";
+
+  encodedCredentials.forEach(
+    (byte) => {
+      binaryCredentials +=
+        String.fromCharCode(byte);
+    }
+  );
+
+  return btoa(
+    binaryCredentials
+  );
+};
+
 export async function getProfile(
   authToken: string
 ): Promise<AuthUser> {
@@ -95,9 +123,8 @@ export async function changePassword(
     )
   );
 
-  return btoa(
-    `${email
-      .trim()
-      .toLowerCase()}:${request.newPassword}`
+  return createBasicAuthToken(
+    email,
+    request.newPassword
   );
 }

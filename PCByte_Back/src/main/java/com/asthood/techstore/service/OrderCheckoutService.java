@@ -3,6 +3,7 @@ package com.asthood.techstore.service;
 import com.asthood.techstore.domain.entity.Product;
 import com.asthood.techstore.dto.CartItemDTO;
 import com.asthood.techstore.dto.OrderRequestDTO;
+import com.asthood.techstore.dto.ShippingQuoteDTO;
 import com.asthood.techstore.model.Order;
 import com.asthood.techstore.model.OrderItem;
 import com.asthood.techstore.model.OrderStatus;
@@ -19,8 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -30,21 +31,31 @@ public class OrderCheckoutService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final ShippingRateService shippingRateService;
+
+    // =========================================================
+    // PREPARAR ORDEN
+    // =========================================================
 
     @Transactional
     public Order prepareOrder(
             OrderRequestDTO orderRequest
     ) {
-        validateOrderRequest(orderRequest);
-
-        String fullName = normalizeName(
+        validateOrderRequest(
                 orderRequest
-                        .getPayer()
-                        .getName()
         );
 
+        String fullName =
+                normalizeName(
+                        orderRequest
+                                .getPayer()
+                                .getName()
+                );
+
         String[] separatedName =
-                separateName(fullName);
+                separateName(
+                        fullName
+                );
 
         String firstName =
                 separatedName[0];
@@ -52,11 +63,12 @@ public class OrderCheckoutService {
         String lastName =
                 separatedName[1];
 
-        String email = normalizeEmail(
-                orderRequest
-                        .getPayer()
-                        .getEmail()
-        );
+        String email =
+                normalizeEmail(
+                        orderRequest
+                                .getPayer()
+                                .getEmail()
+                );
 
         PreparedItems preparedItems =
                 prepareItems(
@@ -64,28 +76,36 @@ public class OrderCheckoutService {
                 );
 
         /*
-         * Actualiza los DTO del carrito con el nombre y
-         * precio oficiales de la base de datos.
+         * Conserva temporalmente la compatibilidad con el
+         * PaymentService actual.
          *
-         * PaymentService utilizará estos valores para
-         * construir la preferencia de Mercado Pago.
+         * Los nombres y precios recibidos desde React son
+         * reemplazados por los valores oficiales de la BD.
          */
         synchronizeRequestItems(
                 orderRequest.getItems(),
                 preparedItems.items()
         );
 
+        PreparedShipping preparedShipping =
+                prepareShipping(
+                        orderRequest,
+                        preparedItems.subtotal()
+                );
+
         Order reusableOrder =
                 findReusablePendingOrder(
                         orderRequest,
                         email,
-                        preparedItems
+                        preparedItems,
+                        preparedShipping
                 );
 
         if (reusableOrder != null) {
             log.info(
-                    "Reutilizando la orden pendiente #{} para un nuevo intento de pago.",
-                    reusableOrder.getId()
+                    "Reutilizando la orden pendiente #{} por un total de {}.",
+                    reusableOrder.getId(),
+                    reusableOrder.getTotal()
             );
 
             return reusableOrder;
@@ -105,25 +125,143 @@ public class OrderCheckoutService {
                         orderUser,
                         fullName,
                         email,
-                        preparedItems
+                        preparedItems,
+                        preparedShipping
                 );
 
         log.info(
-                "Nueva orden #{} creada para el checkout.",
-                newOrder.getId()
+                "Nueva orden #{} creada. Subtotal: {}, despacho: {}, total: {}.",
+                newOrder.getId(),
+                newOrder.getSubtotal(),
+                newOrder.getShippingCost(),
+                newOrder.getTotal()
         );
 
         return newOrder;
     }
 
     // =========================================================
-    // REUTILIZACIÓN DE ORDEN PENDIENTE
+    // DESPACHO
+    // =========================================================
+
+    private PreparedShipping prepareShipping(
+            OrderRequestDTO orderRequest,
+            BigDecimal subtotal
+    ) {
+        String region =
+                normalizeRequired(
+                        orderRequest
+                                .getPayer()
+                                .getRegion(),
+                        "La región de entrega es obligatoria."
+                );
+
+        String city =
+                normalizeRequired(
+                        orderRequest
+                                .getPayer()
+                                .getCity(),
+                        "La comuna de entrega es obligatoria."
+                );
+
+        String shippingType =
+                normalizeShippingType(
+                        orderRequest.getShippingMethod()
+                );
+
+        ShippingQuoteDTO quote =
+                shippingRateService.quote(
+                        region,
+                        city,
+                        subtotal,
+                        shippingType
+                );
+
+        if (
+                quote == null
+                        || !Boolean.TRUE.equals(
+                        quote.getAvailable()
+                )
+        ) {
+            String message =
+                    quote != null
+                            && quote.getMessage() != null
+                            && !quote.getMessage().isBlank()
+                            ? quote.getMessage()
+                            : "No existe una tarifa de despacho disponible.";
+
+            throw new IllegalArgumentException(
+                    message
+            );
+        }
+
+        BigDecimal shippingCost =
+                quote.getCost() == null
+                        ? BigDecimal.ZERO
+                        : quote.getCost();
+
+        if (
+                shippingCost.compareTo(
+                        BigDecimal.ZERO
+                ) < 0
+        ) {
+            throw new IllegalStateException(
+                    "La tarifa de despacho contiene un costo inválido."
+            );
+        }
+
+        BigDecimal total =
+                subtotal.add(
+                        shippingCost
+                );
+
+        return new PreparedShipping(
+                quote.getShippingRateId(),
+                quote.getShippingType(),
+                quote.getLabel(),
+                quote.getCarrier(),
+                shippingCost,
+                Boolean.TRUE.equals(
+                        quote.getFreeShipping()
+                ),
+                quote.getEstimatedMinDays(),
+                quote.getEstimatedMaxDays(),
+                total
+        );
+    }
+
+    private String normalizeShippingType(
+            String shippingMethod
+    ) {
+        if (
+                shippingMethod == null
+                        || shippingMethod.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "Debes seleccionar un método de despacho."
+            );
+        }
+
+        return shippingMethod
+                .trim()
+                .toUpperCase(
+                        Locale.ROOT
+                )
+                .replace(
+                        ' ',
+                        '_'
+                );
+    }
+
+    // =========================================================
+    // REUTILIZAR ORDEN PENDIENTE
     // =========================================================
 
     private Order findReusablePendingOrder(
             OrderRequestDTO orderRequest,
             String email,
-            PreparedItems preparedItems
+            PreparedItems preparedItems,
+            PreparedShipping preparedShipping
     ) {
         Long pendingOrderId =
                 orderRequest.getPendingOrderId();
@@ -143,7 +281,7 @@ public class OrderCheckoutService {
 
         if (pendingOrder == null) {
             log.info(
-                    "La orden #{} no existe, no pertenece al comprador o ya no está pendiente. Se creará una nueva.",
+                    "La orden #{} no existe, no pertenece al comprador o ya no está pendiente.",
                     pendingOrderId
             );
 
@@ -154,27 +292,21 @@ public class OrderCheckoutService {
                 pendingOrder,
                 orderRequest,
                 email,
-                preparedItems
+                preparedItems,
+                preparedShipping
         );
 
-        Order updatedOrder =
-                orderRepository.save(
-                        pendingOrder
-                );
-
-        log.info(
-                "Orden pendiente #{} actualizada para un nuevo intento de pago.",
-                updatedOrder.getId()
+        return orderRepository.save(
+                pendingOrder
         );
-
-        return updatedOrder;
     }
 
     private void updatePendingOrder(
             Order pendingOrder,
             OrderRequestDTO orderRequest,
             String email,
-            PreparedItems preparedItems
+            PreparedItems preparedItems,
+            PreparedShipping preparedShipping
     ) {
         if (
                 pendingOrder.getStatus()
@@ -192,68 +324,11 @@ public class OrderCheckoutService {
                                 .getName()
                 );
 
-        pendingOrder.setFullName(
-                fullName
-        );
-
-        pendingOrder.setEmail(
+        updateContactSnapshot(
+                pendingOrder,
+                orderRequest,
+                fullName,
                 email
-        );
-
-        pendingOrder.setPhone(
-                normalizeOptional(
-                        orderRequest
-                                .getPayer()
-                                .getPhone()
-                )
-        );
-
-        pendingOrder.setStreet(
-                normalizeOptional(
-                        orderRequest
-                                .getPayer()
-                                .getStreet()
-                )
-        );
-
-        pendingOrder.setNumber(
-                normalizeOptional(
-                        orderRequest
-                                .getPayer()
-                                .getNumber()
-                )
-        );
-
-        pendingOrder.setApartment(
-                normalizeOptional(
-                        orderRequest
-                                .getPayer()
-                                .getApartment()
-                )
-        );
-
-        pendingOrder.setCity(
-                normalizeOptional(
-                        orderRequest
-                                .getPayer()
-                                .getCity()
-                )
-        );
-
-        pendingOrder.setRegion(
-                normalizeOptional(
-                        orderRequest
-                                .getPayer()
-                                .getRegion()
-                )
-        );
-
-        pendingOrder.setExtraInfo(
-                normalizeOptional(
-                        orderRequest
-                                .getPayer()
-                                .getExtraInfo()
-                )
         );
 
         replaceOrderItems(
@@ -261,117 +336,15 @@ public class OrderCheckoutService {
                 preparedItems.items()
         );
 
-        pendingOrder.setTotal(
-                preparedItems.total()
-        );
-    }
-
-    private void replaceOrderItems(
-            Order order,
-            List<PreparedItem> preparedItems
-    ) {
-        if (order.getOrderItems() == null) {
-            throw new IllegalStateException(
-                    "La colección de productos de la orden no está inicializada."
-            );
-        }
-
-        order.getOrderItems().clear();
-
-        for (
-                PreparedItem preparedItem
-                : preparedItems
-        ) {
-            OrderItem orderItem =
-                    OrderItem.builder()
-                            .product(
-                                    preparedItem.product()
-                            )
-                            .quantity(
-                                    preparedItem.quantity()
-                            )
-                            .price(
-                                    preparedItem.unitPrice()
-                            )
-                            .build();
-
-            order.addOrderItem(
-                    orderItem
-            );
-        }
-    }
-
-    private boolean sameItems(
-            Order order,
-            Map<Long, Integer> requestedQuantities
-    ) {
-        List<OrderItem> orderItems =
-                order.getOrderItems();
-
-        if (
-                orderItems == null
-                        || orderItems.isEmpty()
-        ) {
-            return false;
-        }
-
-        Map<Long, Integer> existingQuantities =
-                new LinkedHashMap<>();
-
-        for (OrderItem item : orderItems) {
-            if (
-                    item == null
-                            || item.getProduct() == null
-                            || item.getProduct().getId() == null
-                            || item.getQuantity() == null
-            ) {
-                return false;
-            }
-
-            existingQuantities.merge(
-                    item.getProduct().getId(),
-                    item.getQuantity(),
-                    Integer::sum
-            );
-        }
-
-        return existingQuantities.equals(
-                requestedQuantities
-        );
-    }
-
-    private boolean sameAddress(
-            Order order,
-            OrderRequestDTO request
-    ) {
-        return sameText(
-                order.getStreet(),
-                request.getPayer().getStreet()
-        )
-                && sameText(
-                order.getNumber(),
-                request.getPayer().getNumber()
-        )
-                && sameText(
-                order.getApartment(),
-                request.getPayer().getApartment()
-        )
-                && sameText(
-                order.getCity(),
-                request.getPayer().getCity()
-        )
-                && sameText(
-                order.getRegion(),
-                request.getPayer().getRegion()
-        )
-                && sameText(
-                order.getExtraInfo(),
-                request.getPayer().getExtraInfo()
+        applyFinancialSnapshot(
+                pendingOrder,
+                preparedItems.subtotal(),
+                preparedShipping
         );
     }
 
     // =========================================================
-    // CREACIÓN DE ORDEN
+    // CREAR NUEVA ORDEN
     // =========================================================
 
     private Order createNewOrder(
@@ -379,13 +352,20 @@ public class OrderCheckoutService {
             User orderUser,
             String fullName,
             String email,
-            PreparedItems preparedItems
+            PreparedItems preparedItems,
+            PreparedShipping preparedShipping
     ) {
         Order newOrder =
                 Order.builder()
-                        .user(orderUser)
-                        .fullName(fullName)
-                        .email(email)
+                        .user(
+                                orderUser
+                        )
+                        .fullName(
+                                fullName
+                        )
+                        .email(
+                                email
+                        )
                         .phone(
                                 normalizeOptional(
                                         orderRequest
@@ -394,17 +374,19 @@ public class OrderCheckoutService {
                                 )
                         )
                         .street(
-                                normalizeOptional(
+                                normalizeRequired(
                                         orderRequest
                                                 .getPayer()
-                                                .getStreet()
+                                                .getStreet(),
+                                        "La calle de entrega es obligatoria."
                                 )
                         )
                         .number(
-                                normalizeOptional(
+                                normalizeRequired(
                                         orderRequest
                                                 .getPayer()
-                                                .getNumber()
+                                                .getNumber(),
+                                        "El número de la dirección es obligatorio."
                                 )
                         )
                         .apartment(
@@ -415,17 +397,19 @@ public class OrderCheckoutService {
                                 )
                         )
                         .city(
-                                normalizeOptional(
+                                normalizeRequired(
                                         orderRequest
                                                 .getPayer()
-                                                .getCity()
+                                                .getCity(),
+                                        "La comuna de entrega es obligatoria."
                                 )
                         )
                         .region(
-                                normalizeOptional(
+                                normalizeRequired(
                                         orderRequest
                                                 .getPayer()
-                                                .getRegion()
+                                                .getRegion(),
+                                        "La región de entrega es obligatoria."
                                 )
                         )
                         .extraInfo(
@@ -435,35 +419,45 @@ public class OrderCheckoutService {
                                                 .getExtraInfo()
                                 )
                         )
-                        .total(
-                                preparedItems.total()
-                        )
                         .status(
                                 OrderStatus.PENDIENTE
                         )
+                        .subtotal(
+                                preparedItems.subtotal()
+                        )
+                        .shippingCost(
+                                preparedShipping.shippingCost()
+                        )
+                        .total(
+                                preparedShipping.total()
+                        )
+                        .shippingRateId(
+                                preparedShipping.shippingRateId()
+                        )
+                        .shippingType(
+                                preparedShipping.shippingType()
+                        )
+                        .shippingLabel(
+                                preparedShipping.shippingLabel()
+                        )
+                        .shippingCarrier(
+                                preparedShipping.shippingCarrier()
+                        )
+                        .shippingFree(
+                                preparedShipping.shippingFree()
+                        )
+                        .estimatedMinDays(
+                                preparedShipping.estimatedMinDays()
+                        )
+                        .estimatedMaxDays(
+                                preparedShipping.estimatedMaxDays()
+                        )
                         .build();
 
-        for (
-                PreparedItem preparedItem
-                : preparedItems.items()
-        ) {
-            OrderItem orderItem =
-                    OrderItem.builder()
-                            .product(
-                                    preparedItem.product()
-                            )
-                            .quantity(
-                                    preparedItem.quantity()
-                            )
-                            .price(
-                                    preparedItem.unitPrice()
-                            )
-                            .build();
-
-            newOrder.addOrderItem(
-                    orderItem
-            );
-        }
+        addPreparedItems(
+                newOrder,
+                preparedItems.items()
+        );
 
         return orderRepository.save(
                 newOrder
@@ -471,7 +465,136 @@ public class OrderCheckoutService {
     }
 
     // =========================================================
-    // PRODUCTOS Y TOTAL
+    // SNAPSHOT DE CONTACTO
+    // =========================================================
+
+    private void updateContactSnapshot(
+            Order order,
+            OrderRequestDTO orderRequest,
+            String fullName,
+            String email
+    ) {
+        order.setFullName(
+                fullName
+        );
+
+        order.setEmail(
+                email
+        );
+
+        order.setPhone(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getPhone()
+                )
+        );
+
+        order.setStreet(
+                normalizeRequired(
+                        orderRequest
+                                .getPayer()
+                                .getStreet(),
+                        "La calle de entrega es obligatoria."
+                )
+        );
+
+        order.setNumber(
+                normalizeRequired(
+                        orderRequest
+                                .getPayer()
+                                .getNumber(),
+                        "El número de la dirección es obligatorio."
+                )
+        );
+
+        order.setApartment(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getApartment()
+                )
+        );
+
+        order.setCity(
+                normalizeRequired(
+                        orderRequest
+                                .getPayer()
+                                .getCity(),
+                        "La comuna de entrega es obligatoria."
+                )
+        );
+
+        order.setRegion(
+                normalizeRequired(
+                        orderRequest
+                                .getPayer()
+                                .getRegion(),
+                        "La región de entrega es obligatoria."
+                )
+        );
+
+        order.setExtraInfo(
+                normalizeOptional(
+                        orderRequest
+                                .getPayer()
+                                .getExtraInfo()
+                )
+        );
+    }
+
+    // =========================================================
+    // SNAPSHOT FINANCIERO Y DE DESPACHO
+    // =========================================================
+
+    private void applyFinancialSnapshot(
+            Order order,
+            BigDecimal subtotal,
+            PreparedShipping preparedShipping
+    ) {
+        order.setSubtotal(
+                subtotal
+        );
+
+        order.setShippingCost(
+                preparedShipping.shippingCost()
+        );
+
+        order.setTotal(
+                preparedShipping.total()
+        );
+
+        order.setShippingRateId(
+                preparedShipping.shippingRateId()
+        );
+
+        order.setShippingType(
+                preparedShipping.shippingType()
+        );
+
+        order.setShippingLabel(
+                preparedShipping.shippingLabel()
+        );
+
+        order.setShippingCarrier(
+                preparedShipping.shippingCarrier()
+        );
+
+        order.setShippingFree(
+                preparedShipping.shippingFree()
+        );
+
+        order.setEstimatedMinDays(
+                preparedShipping.estimatedMinDays()
+        );
+
+        order.setEstimatedMaxDays(
+                preparedShipping.estimatedMaxDays()
+        );
+    }
+
+    // =========================================================
+    // PRODUCTOS
     // =========================================================
 
     private PreparedItems prepareItems(
@@ -480,7 +603,10 @@ public class OrderCheckoutService {
         Map<Long, Integer> quantities =
                 new LinkedHashMap<>();
 
-        for (CartItemDTO requestedItem : requestedItems) {
+        for (
+                CartItemDTO requestedItem
+                : requestedItems
+        ) {
             validateCartItem(
                     requestedItem
             );
@@ -504,7 +630,7 @@ public class OrderCheckoutService {
                         )
                         .toList();
 
-        BigDecimal total =
+        BigDecimal subtotal =
                 preparedItems
                         .stream()
                         .map(item ->
@@ -520,10 +646,19 @@ public class OrderCheckoutService {
                                 BigDecimal::add
                         );
 
+        if (
+                subtotal.compareTo(
+                        BigDecimal.ZERO
+                ) <= 0
+        ) {
+            throw new IllegalArgumentException(
+                    "El subtotal de la orden debe ser mayor que cero."
+            );
+        }
+
         return new PreparedItems(
                 preparedItems,
-                quantities,
-                total
+                subtotal
         );
     }
 
@@ -533,7 +668,9 @@ public class OrderCheckoutService {
     ) {
         Product product =
                 productRepository
-                        .findById(productId)
+                        .findById(
+                                productId
+                        )
                         .orElseThrow(() ->
                                 new IllegalArgumentException(
                                         "El producto con ID "
@@ -579,19 +716,27 @@ public class OrderCheckoutService {
             List<CartItemDTO> requestedItems,
             List<PreparedItem> preparedItems
     ) {
-        Map<Long, PreparedItem> preparedItemsByProductId =
+        Map<Long, PreparedItem> preparedByProductId =
                 new LinkedHashMap<>();
 
-        for (PreparedItem preparedItem : preparedItems) {
-            preparedItemsByProductId.put(
-                    preparedItem.product().getId(),
+        for (
+                PreparedItem preparedItem
+                : preparedItems
+        ) {
+            preparedByProductId.put(
+                    preparedItem
+                            .product()
+                            .getId(),
                     preparedItem
             );
         }
 
-        for (CartItemDTO requestedItem : requestedItems) {
+        for (
+                CartItemDTO requestedItem
+                : requestedItems
+        ) {
             PreparedItem preparedItem =
-                    preparedItemsByProductId.get(
+                    preparedByProductId.get(
                             requestedItem.getProductId()
                     );
 
@@ -615,6 +760,53 @@ public class OrderCheckoutService {
         }
     }
 
+    private void replaceOrderItems(
+            Order order,
+            List<PreparedItem> preparedItems
+    ) {
+        if (
+                order.getOrderItems() == null
+        ) {
+            throw new IllegalStateException(
+                    "La colección de productos de la orden no está inicializada."
+            );
+        }
+
+        order.getOrderItems().clear();
+
+        addPreparedItems(
+                order,
+                preparedItems
+        );
+    }
+
+    private void addPreparedItems(
+            Order order,
+            List<PreparedItem> preparedItems
+    ) {
+        for (
+                PreparedItem preparedItem
+                : preparedItems
+        ) {
+            OrderItem orderItem =
+                    OrderItem.builder()
+                            .product(
+                                    preparedItem.product()
+                            )
+                            .quantity(
+                                    preparedItem.quantity()
+                            )
+                            .price(
+                                    preparedItem.unitPrice()
+                            )
+                            .build();
+
+            order.addOrderItem(
+                    orderItem
+            );
+        }
+    }
+
     // =========================================================
     // USUARIO
     // =========================================================
@@ -626,7 +818,9 @@ public class OrderCheckoutService {
             OrderRequestDTO orderRequest
     ) {
         return userRepository
-                .findByEmail(email)
+                .findByEmail(
+                        email
+                )
                 .map(user ->
                         updateExistingUser(
                                 user,
@@ -651,11 +845,6 @@ public class OrderCheckoutService {
             String lastName,
             OrderRequestDTO orderRequest
     ) {
-        log.info(
-                "Actualizando usuario existente: {}",
-                user.getEmail()
-        );
-
         user.setFirstName(
                 firstName
         );
@@ -683,16 +872,17 @@ public class OrderCheckoutService {
             String lastName,
             OrderRequestDTO orderRequest
     ) {
-        log.info(
-                "Creando usuario invitado: {}",
-                email
-        );
-
         User guestUser =
                 User.builder()
-                        .email(email)
-                        .firstName(firstName)
-                        .lastName(lastName)
+                        .email(
+                                email
+                        )
+                        .firstName(
+                                firstName
+                        )
+                        .lastName(
+                                lastName
+                        )
                         .phone(
                                 normalizeOptional(
                                         orderRequest
@@ -717,7 +907,9 @@ public class OrderCheckoutService {
     private void validateOrderRequest(
             OrderRequestDTO orderRequest
     ) {
-        if (orderRequest == null) {
+        if (
+                orderRequest == null
+        ) {
             throw new IllegalArgumentException(
                     "La solicitud de compra es obligatoria."
             );
@@ -731,19 +923,12 @@ public class OrderCheckoutService {
             );
         }
 
-        if (
+        normalizeRequired(
                 orderRequest
                         .getPayer()
-                        .getEmail() == null
-                        || orderRequest
-                        .getPayer()
-                        .getEmail()
-                        .isBlank()
-        ) {
-            throw new IllegalArgumentException(
-                    "El correo del comprador es obligatorio."
-            );
-        }
+                        .getEmail(),
+                "El correo del comprador es obligatorio."
+        );
 
         if (
                 orderRequest.getItems() == null
@@ -755,12 +940,19 @@ public class OrderCheckoutService {
                     "La orden debe contener al menos un producto."
             );
         }
+
+        normalizeRequired(
+                orderRequest.getShippingMethod(),
+                "Debes seleccionar un método de despacho."
+        );
     }
 
     private void validateCartItem(
             CartItemDTO item
     ) {
-        if (item == null) {
+        if (
+                item == null
+        ) {
             throw new IllegalArgumentException(
                     "La orden contiene un producto inválido."
             );
@@ -809,9 +1001,33 @@ public class OrderCheckoutService {
     private String normalizeEmail(
             String email
     ) {
-        return email
-                .trim()
-                .toLowerCase();
+        return normalizeRequired(
+                email,
+                "El correo del comprador es obligatorio."
+        )
+                .toLowerCase(
+                        Locale.ROOT
+                );
+    }
+
+    private String normalizeRequired(
+            String value,
+            String errorMessage
+    ) {
+        String normalized =
+                normalizeOptional(
+                        value
+                );
+
+        if (
+                normalized == null
+        ) {
+            throw new IllegalArgumentException(
+                    errorMessage
+            );
+        }
+
+        return normalized;
     }
 
     private String normalizeOptional(
@@ -832,38 +1048,17 @@ public class OrderCheckoutService {
                 );
     }
 
-    private String normalizeComparison(
-            String value
-    ) {
-        String normalized =
-                normalizeOptional(value);
-
-        return normalized == null
-                ? ""
-                : normalized.toLowerCase();
-    }
-
-    private boolean sameText(
-            String firstValue,
-            String secondValue
-    ) {
-        return Objects.equals(
-                normalizeComparison(
-                        firstValue
-                ),
-                normalizeComparison(
-                        secondValue
-                )
-        );
-    }
-
     private String[] separateName(
             String fullName
     ) {
         int firstSpaceIndex =
-                fullName.indexOf(" ");
+                fullName.indexOf(
+                        " "
+                );
 
-        if (firstSpaceIndex < 0) {
+        if (
+                firstSpaceIndex < 0
+        ) {
             return new String[]{
                     fullName,
                     ""
@@ -891,6 +1086,10 @@ public class OrderCheckoutService {
         };
     }
 
+    // =========================================================
+    // ESTRUCTURAS INTERNAS
+    // =========================================================
+
     private record PreparedItem(
             Product product,
             Integer quantity,
@@ -900,7 +1099,19 @@ public class OrderCheckoutService {
 
     private record PreparedItems(
             List<PreparedItem> items,
-            Map<Long, Integer> quantities,
+            BigDecimal subtotal
+    ) {
+    }
+
+    private record PreparedShipping(
+            Long shippingRateId,
+            String shippingType,
+            String shippingLabel,
+            String shippingCarrier,
+            BigDecimal shippingCost,
+            Boolean shippingFree,
+            Integer estimatedMinDays,
+            Integer estimatedMaxDays,
             BigDecimal total
     ) {
     }

@@ -23,6 +23,11 @@ import {
 import logo from "../assets/logo.png";
 import { REGIONES_CHILE } from "../data/regionesChile";
 import { useAuth } from "../hooks/useAuth";
+import {
+  formatPhone,
+  isValidPhone,
+  normalizePhone,
+} from "../utils/phoneUtils";
 
 import type {
   AuthUser,
@@ -108,6 +113,11 @@ export const RegisterForm = ({
     useState("");
 
   const [
+    phoneTouched,
+    setPhoneTouched,
+  ] = useState(false);
+
+  const [
     showPassword,
     setShowPassword,
   ] = useState(false);
@@ -128,6 +138,22 @@ export const RegisterForm = ({
       0 &&
     formData.password !==
       formData.confirmPassword;
+
+  const phoneValue =
+    formData.phone?.trim() ?? "";
+
+  const phoneIsValid =
+    isValidPhone(phoneValue);
+
+  const showPhoneError =
+    phoneTouched &&
+    phoneValue.length > 0 &&
+    !phoneIsValid;
+
+  const showPhoneSuccess =
+    phoneTouched &&
+    phoneValue.length > 0 &&
+    phoneIsValid;
 
   const availableCommunes =
     useMemo(() => {
@@ -168,6 +194,26 @@ export const RegisterForm = ({
       ...previous,
       [name]: value,
     }));
+
+    if (name === "phone") {
+      setPhoneTouched(true);
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    setPhoneTouched(true);
+
+    if (
+      phoneValue &&
+      phoneIsValid
+    ) {
+      setFormData((previous) => ({
+        ...previous,
+        phone: formatPhone(
+          previous.phone ?? ""
+        ),
+      }));
+    }
   };
 
   const handleRegionChange = (
@@ -205,6 +251,7 @@ export const RegisterForm = ({
     event.preventDefault();
 
     setError("");
+    setPhoneTouched(true);
 
     if (
       formData.password !==
@@ -222,6 +269,16 @@ export const RegisterForm = ({
     ) {
       setError(
         "La contraseña debe contener entre 8 y 72 caracteres."
+      );
+      return;
+    }
+
+    if (
+      phoneValue &&
+      !phoneIsValid
+    ) {
+      setError(
+        "Ingresa un número de teléfono chileno válido."
       );
       return;
     }
@@ -245,6 +302,13 @@ export const RegisterForm = ({
           ? `${formData.complementType} ${formData.complementDetail}`.trim()
           : "";
 
+      const normalizedPhone =
+        phoneValue
+          ? normalizePhone(
+              phoneValue
+            )
+          : undefined;
+
       const request: RegisterRequest = {
         firstName:
           formData.firstName.trim(),
@@ -259,9 +323,7 @@ export const RegisterForm = ({
         password:
           formData.password,
 
-        phone:
-          formData.phone?.trim() ||
-          undefined,
+        phone: normalizedPhone,
 
         addressLabel: "Principal",
 
@@ -445,7 +507,21 @@ export const RegisterForm = ({
                 }
                 placeholder="+56 9 1234 5678"
                 autoComplete="tel"
+                inputMode="tel"
+                maxLength={25}
                 onChange={handleChange}
+                onBlur={handlePhoneBlur}
+                error={showPhoneError}
+                helperText={
+                  showPhoneError
+                    ? "Ingresa un celular o teléfono fijo chileno válido."
+                    : showPhoneSuccess
+                      ? `Número válido: ${formatPhone(phoneValue)}`
+                      : "Puedes ingresar un celular o teléfono fijo chileno."
+                }
+                success={
+                  showPhoneSuccess
+                }
               />
 
               <PasswordField
@@ -792,12 +868,19 @@ interface InputFieldProps {
   placeholder: string;
   icon?: React.ReactNode;
   type?: React.HTMLInputTypeAttribute;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   autoComplete?: string;
   required?: boolean;
   optional?: boolean;
   disabled?: boolean;
   minLength?: number;
   maxLength?: number;
+  error?: boolean;
+  success?: boolean;
+  helperText?: string;
+  onBlur?: (
+    event: React.FocusEvent<HTMLInputElement>
+  ) => void;
   onChange: (
     event: React.ChangeEvent<HTMLInputElement>
   ) => void;
@@ -810,14 +893,25 @@ const InputField = ({
   placeholder,
   icon,
   type = "text",
+  inputMode,
   autoComplete,
   required = false,
   optional = false,
   disabled = false,
   minLength,
   maxLength,
+  error = false,
+  success = false,
+  helperText,
+  onBlur,
   onChange,
 }: InputFieldProps) => {
+  const borderClass = error
+    ? "border-red-300 focus:border-red-500"
+    : success
+      ? "border-[#97cf00] focus:border-[#6f9900]"
+      : "border-slate-200 focus:border-[#0066FF]";
+
   return (
     <div>
       <FieldLabel
@@ -827,7 +921,15 @@ const InputField = ({
 
       <div className="relative mt-1.5">
         {icon && (
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+          <div
+            className={`absolute left-4 top-1/2 -translate-y-1/2 ${
+              error
+                ? "text-red-400"
+                : success
+                  ? "text-[#6f9900]"
+                  : "text-slate-300"
+            }`}
+          >
             {icon}
           </div>
         )}
@@ -835,6 +937,7 @@ const InputField = ({
         <input
           name={name}
           type={type}
+          inputMode={inputMode}
           value={value}
           placeholder={placeholder}
           autoComplete={autoComplete}
@@ -842,14 +945,30 @@ const InputField = ({
           disabled={disabled}
           minLength={minLength}
           maxLength={maxLength}
+          onBlur={onBlur}
           onChange={onChange}
-          className={`h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pr-4 text-xs font-bold text-slate-800 outline-none transition placeholder:font-medium placeholder:text-slate-300 focus:border-[#0066FF] focus:bg-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${
+          aria-invalid={error}
+          className={`h-11 w-full rounded-xl border bg-slate-50 pr-4 text-xs font-bold text-slate-800 outline-none transition placeholder:font-medium placeholder:text-slate-300 focus:bg-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${borderClass} ${
             icon
               ? "pl-11"
               : "pl-4"
           }`}
         />
       </div>
+
+      {helperText && (
+        <p
+          className={`mt-1.5 text-[10px] font-semibold leading-4 ${
+            error
+              ? "text-red-500"
+              : success
+                ? "text-[#6f9900]"
+                : "text-slate-400"
+          }`}
+        >
+          {helperText}
+        </p>
+      )}
     </div>
   );
 };

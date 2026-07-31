@@ -30,8 +30,28 @@ public class OrderRequestDTO {
     private List<CartItemDTO> items;
 
     /*
+     * Método de despacho seleccionado por el cliente.
+     *
+     * Actualmente el frontend envía:
+     *
+     * home_delivery
+     *
+     * El backend normalizará este valor antes de consultar
+     * ShippingRateService.
+     */
+    private String shippingMethod;
+
+    /*
      * Total informado por el frontend.
-     * El backend debe seguir recalculándolo usando los precios reales.
+     *
+     * Se conserva temporalmente por compatibilidad con el
+     * contrato actual, pero nunca debe considerarse autoritativo.
+     *
+     * El backend calculará:
+     *
+     * subtotal oficial
+     * + despacho oficial
+     * = total definitivo
      */
     private Double total;
 }

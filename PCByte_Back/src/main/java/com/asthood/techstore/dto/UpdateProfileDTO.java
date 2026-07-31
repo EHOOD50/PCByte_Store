@@ -1,6 +1,7 @@
 package com.asthood.techstore.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,9 +30,13 @@ public class UpdateProfileDTO {
     )
     private String lastName;
 
+    @Pattern(
+            regexp = "^[0-9+()\\-\\s]*$",
+            message = "El teléfono contiene caracteres no permitidos."
+    )
     @Size(
-            max = 30,
-            message = "El teléfono no puede superar los 30 caracteres."
+            max = 25,
+            message = "El teléfono no puede superar los 25 caracteres."
     )
     private String phone;
 }

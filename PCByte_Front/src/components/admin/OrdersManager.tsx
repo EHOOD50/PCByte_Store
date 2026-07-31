@@ -33,6 +33,7 @@ import type {
 
 interface OrderItem {
   id?: number;
+  productId?: number;
   quantity?: number;
   price?: number;
   productName?: string;
@@ -53,23 +54,64 @@ interface OrderUser {
 
 interface Order {
   id: number;
+
   paymentId?: string | number | null;
+
   userId?: number | null;
+
   customerEmail?: string;
+
   email?: string;
+
   fullName?: string;
+
   phone?: string;
+
   street?: string;
+
   number?: string;
-  extraInfo?: string;
+
   apartment?: string;
+
   city?: string;
+
   region?: string;
+
+  extraInfo?: string;
+
+  subtotal?: number;
+
+  shippingCost?: number;
+
   total?: number;
+
+  shippingRateId?: number | null;
+
+  shippingType?: string | null;
+
+  shippingLabel?: string | null;
+
+  shippingCarrier?: string | null;
+
+  shippingFree?: boolean;
+
+  estimatedMinDays?: number | null;
+
+  estimatedMaxDays?: number | null;
+
   status?: string | null;
+
   createdAt?: string;
+
   user?: OrderUser | null;
+
+  /*
+   * La entidad Order utiliza orderItems.
+   * OrderResponseDTO utiliza items.
+   */
   orderItems?: OrderItem[];
+
+  items?: OrderItem[];
 }
 
 type StatusFilter =
@@ -180,48 +222,137 @@ const getNormalizedStatus = (
   return "PENDIENTE";
 };
 
+const getOrderItems = (
+  order: Order
+): OrderItem[] => {
+  return (
+    order.orderItems ??
+    order.items ??
+    []
+  );
+};
+
 const toDrawerData = (
   order: Order
 ): OrderDrawerData => {
+  const normalizedItems =
+    getOrderItems(
+      order
+    );
+
   return {
     id: order.id,
-    paymentId: order.paymentId,
-    userId: order.userId,
+
+    paymentId:
+      order.paymentId,
+
+    userId:
+      order.userId,
+
     customerEmail:
       order.customerEmail,
-    email: order.email,
-    fullName: order.fullName,
-    phone: order.phone,
-    street: order.street,
-    number: order.number,
-    apartment: order.apartment,
-    city: order.city,
-    region: order.region,
-    extraInfo: order.extraInfo,
-    total: order.total,
-    status: order.status,
-    createdAt: order.createdAt,
-    user: order.user,
+
+    email:
+      order.email,
+
+    fullName:
+      order.fullName,
+
+    phone:
+      order.phone,
+
+    street:
+      order.street,
+
+    number:
+      order.number,
+
+    apartment:
+      order.apartment,
+
+    city:
+      order.city,
+
+    region:
+      order.region,
+
+    extraInfo:
+      order.extraInfo,
+
+    subtotal:
+      order.subtotal,
+
+    shippingCost:
+      order.shippingCost,
+
+    total:
+      order.total,
+
+    shippingRateId:
+      order.shippingRateId,
+
+    shippingType:
+      order.shippingType,
+
+    shippingLabel:
+      order.shippingLabel,
+
+    shippingCarrier:
+      order.shippingCarrier,
+
+    shippingFree:
+      order.shippingFree,
+
+    estimatedMinDays:
+      order.estimatedMinDays,
+
+    estimatedMaxDays:
+      order.estimatedMaxDays,
+
+    status:
+      order.status,
+
+    createdAt:
+      order.createdAt,
+
+    user:
+      order.user,
+
     orderItems:
-      order.orderItems?.map(
+      normalizedItems.map(
         (item) => ({
-          id: item.id,
-          quantity: item.quantity,
-          price: item.price,
+          id:
+            item.id,
+
+          productId:
+            item.productId ??
+            item.product?.id,
+
+          quantity:
+            item.quantity,
+
+          price:
+            item.price,
+
           productName:
             item.productName,
-          product: item.product
-            ? {
-                id: item.product.id,
-                name:
-                  item.product.name,
-                imageUrl:
-                  item.product
-                    .imageUrl,
-              }
-            : null,
+
+          product:
+            item.product
+              ? {
+                  id:
+                    item.product.id,
+
+                  name:
+                    item.product.name,
+
+                  imageUrl:
+                    item.product
+                      .imageUrl,
+                }
+              : null,
         })
-      ) ?? [],
+      ),
   };
 };
 
@@ -500,13 +631,14 @@ const OrdersManager = () => {
       [orders]
     );
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(
-      filteredOrders.length /
-        ITEMS_PER_PAGE
-    )
-  );
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredOrders.length /
+          ITEMS_PER_PAGE
+      )
+    );
 
   const safeCurrentPage =
     Math.min(
@@ -851,6 +983,11 @@ const OrdersManager = () => {
                             order.status
                           );
 
+                        const orderItems =
+                          getOrderItems(
+                            order
+                          );
+
                         return (
                           <tr
                             key={
@@ -950,6 +1087,7 @@ const OrdersManager = () => {
                                   <p className="mt-1 text-[10px] font-bold uppercase text-[#0066FF]">
                                     {order.city ??
                                       "Sin ciudad"}
+
                                     {order.region
                                       ? `, ${order.region}`
                                       : ""}
@@ -967,12 +1105,12 @@ const OrdersManager = () => {
 
                               <p className="mt-3 text-[10px] text-slate-500">
                                 {
-                                  order
-                                    .orderItems
-                                    ?.length ??
-                                  0
+                                  orderItems.length
                                 }{" "}
-                                productos
+                                {orderItems.length ===
+                                1
+                                  ? "producto"
+                                  : "productos"}
                               </p>
                             </td>
 
@@ -1053,6 +1191,11 @@ const OrdersManager = () => {
                         order.status
                       );
 
+                    const orderItems =
+                      getOrderItems(
+                        order
+                      );
+
                     return (
                       <article
                         key={
@@ -1114,6 +1257,7 @@ const OrdersManager = () => {
                             <p className="mt-1 text-[10px] font-black uppercase text-[#0066FF]">
                               {order.city ??
                                 "Sin ciudad"}
+
                               {order.region
                                 ? `, ${order.region}`
                                 : ""}
@@ -1130,12 +1274,12 @@ const OrdersManager = () => {
 
                             <p className="text-xs font-bold text-slate-600">
                               {
-                                order
-                                  .orderItems
-                                  ?.length ??
-                                0
+                                orderItems.length
                               }{" "}
-                              productos
+                              {orderItems.length ===
+                              1
+                                ? "producto"
+                                : "productos"}
                             </p>
                           </div>
 
@@ -1166,32 +1310,29 @@ const OrdersManager = () => {
                           />
                         </div>
 
-                        {order.orderItems &&
-                          order
-                            .orderItems
-                            .length >
-                            0 && (
-                            <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
-                              {order.orderItems.map(
-                                (
-                                  item,
-                                  index
-                                ) => (
-                                  <p
-                                    key={`${order.id}-${item.id ?? index}`}
-                                    className="text-[10px] font-bold uppercase text-slate-500"
-                                  >
-                                    {item.quantity ??
-                                      0}{" "}
-                                    ×{" "}
-                                    {getProductName(
-                                      item
-                                    )}
-                                  </p>
-                                )
-                              )}
-                            </div>
-                          )}
+                        {orderItems.length >
+                          0 && (
+                          <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                            {orderItems.map(
+                              (
+                                item,
+                                index
+                              ) => (
+                                <p
+                                  key={`${order.id}-${item.id ?? item.productId ?? index}`}
+                                  className="text-[10px] font-bold uppercase text-slate-500"
+                                >
+                                  {item.quantity ??
+                                    0}{" "}
+                                  ×{" "}
+                                  {getProductName(
+                                    item
+                                  )}
+                                </p>
+                              )
+                            )}
+                          </div>
+                        )}
 
                         <button
                           type="button"

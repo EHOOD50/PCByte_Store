@@ -62,13 +62,9 @@ public class PaymentController {
                             );
 
             String checkoutUrl =
-                    paymentService
-                            .createPreference(
-                                    orderRequest
-                                            .getItems(),
-                                    preparedOrder
-                                            .getId()
-                            );
+                    paymentService.createPreference(
+                            preparedOrder.getId()
+                    );
 
             log.info(
                     "Preferencia creada para la orden #{} por un total de ${}",
@@ -87,7 +83,8 @@ public class PaymentController {
             );
 
         } catch (
-                IllegalArgumentException exception
+                IllegalArgumentException |
+                IllegalStateException exception
         ) {
             log.warn(
                     "Solicitud de pago rechazada: {}",
@@ -103,6 +100,80 @@ public class PaymentController {
         ) {
             log.error(
                     "Error crítico al preparar la orden o crear la preferencia de pago.",
+                    exception
+            );
+
+            return ResponseEntity
+                    .internalServerError()
+                    .build();
+        }
+    }
+
+    // =========================================================
+    // REANUDAR PAGO DE UNA ORDEN PENDIENTE
+    // =========================================================
+
+    /*
+     * Genera una nueva preferencia de Mercado Pago para una
+     * orden que ya existe.
+     *
+     * No crea una orden nueva.
+     *
+     * PaymentService valida que:
+     *
+     * - la orden exista;
+     * - la orden esté PENDIENTE;
+     * - contenga productos válidos;
+     * - tenga subtotal y despacho válidos;
+     * - el total almacenado sea correcto.
+     */
+    @PostMapping("/order/{orderId}/retry")
+    public ResponseEntity<PaymentResponseDTO> retryPayment(
+            @PathVariable
+            Long orderId
+    ) {
+        try {
+            String checkoutUrl =
+                    paymentService
+                            .createPreference(
+                                    orderId
+                            );
+
+            PaymentResponseDTO response =
+                    new PaymentResponseDTO(
+                            checkoutUrl,
+                            orderId
+                    );
+
+            log.info(
+                    "Nueva preferencia creada para reanudar el pago de la orden #{}.",
+                    orderId
+            );
+
+            return ResponseEntity.ok(
+                    response
+            );
+
+        } catch (
+                IllegalArgumentException |
+                IllegalStateException exception
+        ) {
+            log.warn(
+                    "No fue posible reanudar el pago de la orden #{}: {}",
+                    orderId,
+                    exception.getMessage()
+            );
+
+            return ResponseEntity
+                    .badRequest()
+                    .build();
+
+        } catch (
+                Exception exception
+        ) {
+            log.error(
+                    "Error crítico al reanudar el pago de la orden #{}.",
+                    orderId,
                     exception
             );
 

@@ -14,7 +14,25 @@ export interface OrderResponse {
 
   phone: string;
 
+  subtotal: number;
+
+  shippingCost: number;
+
   total: number;
+
+  shippingRateId: number | null;
+
+  shippingType: string | null;
+
+  shippingLabel: string | null;
+
+  shippingCarrier: string | null;
+
+  shippingFree: boolean;
+
+  estimatedMinDays: number | null;
+
+  estimatedMaxDays: number | null;
 
   status: string;
 

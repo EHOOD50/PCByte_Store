@@ -1,9 +1,9 @@
 package com.asthood.techstore.controller;
 
-import com.asthood.techstore.model.Order;
+import com.asthood.techstore.dto.OrderResponseDTO;
 import com.asthood.techstore.model.OrderStatus;
-import com.asthood.techstore.repository.OrderRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.asthood.techstore.service.OrderService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,35 +12,106 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/orders")
-@CrossOrigin(origins = "*")
-public class OrderAdminController { // 👈 Cambié el ";" por "{"
+@RequiredArgsConstructor
+public class OrderAdminController {
 
-    @Autowired
-    private OrderRepository orderRepository;
+    private final OrderService orderService;
 
-    // Listar todas las órdenes para la tabla de "Logística"
+    // =========================================================
+    // LISTAR TODAS LAS ÓRDENES
+    // =========================================================
+
+    /*
+     * Devuelve las órdenes mediante OrderResponseDTO.
+     *
+     * Esto evita exponer directamente las entidades JPA
+     * y permite entregar al frontend:
+     *
+     * - datos del cliente;
+     * - dirección utilizada en la compra;
+     * - subtotal;
+     * - costo de despacho;
+     * - total;
+     * - fotografía de la tarifa de despacho;
+     * - productos de la orden.
+     */
     @GetMapping
-    public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+    public ResponseEntity<List<OrderResponseDTO>> getAllOrders() {
+        List<OrderResponseDTO> orders =
+                orderService.getAllOrders();
+
+        return ResponseEntity.ok(
+                orders
+        );
     }
 
-    // Actualizar el estado de la orden desde el selector de la tabla
+    // =========================================================
+    // OBTENER UNA ORDEN
+    // =========================================================
+
+    @GetMapping("/{id}")
+    public ResponseEntity<OrderResponseDTO> getOrderById(
+            @PathVariable Long id
+    ) {
+        OrderResponseDTO order =
+                orderService.getOrderById(
+                        id
+                );
+
+        return ResponseEntity.ok(
+                order
+        );
+    }
+
+    // =========================================================
+    // ACTUALIZAR ESTADO
+    // =========================================================
+
     @PatchMapping("/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return orderRepository.findById(id).map(order -> {
-            try {
-                String statusStr = body.get("status");
+    public ResponseEntity<OrderResponseDTO> updateStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body
+    ) {
+        String statusValue =
+                body.get(
+                        "status"
+                );
 
-                // Intentamos convertir el String a Enum.
-                // Si tu campo 'status' en la clase Order es String,
-                // cambia la línea de abajo por: order.setStatus(statusStr);
-                order.setStatus(OrderStatus.valueOf(statusStr));
+        if (
+                statusValue == null ||
+                        statusValue.isBlank()
+        ) {
+            throw new IllegalArgumentException(
+                    "El estado de la orden es obligatorio."
+            );
+        }
 
-                orderRepository.save(order);
-                return ResponseEntity.ok().build();
-            } catch (Exception e) {
-                return ResponseEntity.badRequest().body("Error al actualizar estado: " + e.getMessage());
-            }
-        }).orElse(ResponseEntity.notFound().build());
+        OrderStatus status;
+
+        try {
+            status =
+                    OrderStatus.valueOf(
+                            statusValue
+                                    .trim()
+                                    .toUpperCase()
+                    );
+        } catch (
+                IllegalArgumentException exception
+        ) {
+            throw new IllegalArgumentException(
+                    "Estado de orden no válido: "
+                            + statusValue
+            );
+        }
+
+        OrderResponseDTO updatedOrder =
+                orderService.updateOrderStatus(
+                        id,
+                        status
+                );
+
+        return ResponseEntity.ok(
+                updatedOrder
+        );
     }
-} // 👈 Asegúrate de que esta llave de cierre esté al final
+}

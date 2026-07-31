@@ -16,6 +16,7 @@ import com.asthood.techstore.model.VerificationToken;
 import com.asthood.techstore.repository.UserRepository;
 import com.asthood.techstore.service.identity.IssuedVerificationToken;
 import com.asthood.techstore.service.identity.VerificationTokenService;
+import com.asthood.techstore.util.PhoneNumberUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -346,7 +347,7 @@ public class AuthService {
         );
 
         user.setPhone(
-                normalizeNullableText(
+                normalizePhone(
                         request.getPhone()
                 )
         );
@@ -476,7 +477,7 @@ public class AuthService {
         );
 
         existingUser.setPhone(
-                normalizeNullableText(
+                normalizePhone(
                         request.getPhone()
                 )
         );
@@ -536,7 +537,7 @@ public class AuthService {
                         )
                 )
                 .phone(
-                        normalizeNullableText(
+                        normalizePhone(
                                 request.getPhone()
                         )
                 )
@@ -901,6 +902,10 @@ public class AuthService {
                 request.getPassword(),
                 "La contraseña debe contener entre 8 y 72 caracteres."
         );
+
+        normalizePhone(
+                request.getPhone()
+        );
     }
 
     private void validateUpdateProfileRequest(
@@ -933,6 +938,10 @@ public class AuthService {
                     "El apellido es obligatorio."
             );
         }
+
+        normalizePhone(
+                request.getPhone()
+        );
     }
 
     private void validateChangePasswordRequest(
@@ -1049,6 +1058,31 @@ public class AuthService {
 
         return normalizeText(
                 value
+        );
+    }
+
+    private String normalizePhone(
+            String phone
+    ) {
+        if (
+                phone == null ||
+                        phone.isBlank()
+        ) {
+            return null;
+        }
+
+        if (
+                !PhoneNumberUtils.isValid(
+                        phone
+                )
+        ) {
+            throw new IllegalArgumentException(
+                    "El teléfono no tiene un formato válido."
+            );
+        }
+
+        return PhoneNumberUtils.normalize(
+                phone
         );
     }
 

@@ -196,8 +196,102 @@ public class OrderService {
                         order
                 );
 
+        log.info(
+                "Estado de la orden #{} actualizado a {}.",
+                id,
+                newStatus
+        );
+
         return convertToDTO(
                 updatedOrder
+        );
+    }
+
+    // =========================================================
+    // CANCELAR ORDEN PENDIENTE
+    // =========================================================
+
+    /*
+     * Cancela una orden sin eliminarla de la base de datos.
+     *
+     * Solamente puede cancelarse cuando:
+     *
+     * - existe;
+     * - está en estado PENDIENTE;
+     * - no tiene un pago de Mercado Pago asociado.
+     */
+    @Transactional
+    public OrderResponseDTO cancelOrder(
+            Long orderId
+    ) {
+        validateOrderId(
+                orderId
+        );
+
+        /*
+         * Se bloquea la orden durante la operación para impedir
+         * que una cancelación y una confirmación de pago sean
+         * procesadas simultáneamente.
+         */
+        Order order =
+                orderRepository
+                        .findByIdForUpdate(
+                                orderId
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new EntityNotFoundException(
+                                                "Orden no encontrada con ID: "
+                                                        + orderId
+                                        )
+                        );
+
+        if (
+                order.getStatus() ==
+                        OrderStatus.CANCELADO
+        ) {
+            throw new IllegalStateException(
+                    "La orden #"
+                            + orderId
+                            + " ya se encuentra cancelada."
+            );
+        }
+
+        if (
+                order.getStatus() !=
+                        OrderStatus.PENDIENTE
+        ) {
+            throw new IllegalStateException(
+                    "Solo es posible cancelar órdenes pendientes."
+            );
+        }
+
+        if (
+                order.getPaymentId() != null &&
+                        !order.getPaymentId()
+                                .isBlank()
+        ) {
+            throw new IllegalStateException(
+                    "La orden ya posee un pago asociado y no puede cancelarse."
+            );
+        }
+
+        order.setStatus(
+                OrderStatus.CANCELADO
+        );
+
+        Order cancelledOrder =
+                orderRepository.save(
+                        order
+                );
+
+        log.info(
+                "Orden #{} cancelada correctamente.",
+                orderId
+        );
+
+        return convertToDTO(
+                cancelledOrder
         );
     }
 
@@ -263,6 +357,33 @@ public class OrderService {
             );
 
             return false;
+        }
+
+        /*
+         * Una orden cancelada no puede ser confirmada aunque
+         * llegue posteriormente un webhook de una preferencia
+         * generada antes de la cancelación.
+         */
+        if (
+                order.getStatus() ==
+                        OrderStatus.CANCELADO
+        ) {
+            throw new IllegalStateException(
+                    "La orden #"
+                            + orderId
+                            + " está cancelada y no puede confirmarse."
+            );
+        }
+
+        if (
+                order.getStatus() !=
+                        OrderStatus.PENDIENTE
+        ) {
+            throw new IllegalStateException(
+                    "La orden #"
+                            + orderId
+                            + " no está pendiente de pago."
+            );
         }
 
         validatePaymentIdIsAvailable(
@@ -539,17 +660,30 @@ public class OrderService {
                 customerName,
                 order.getEmail(),
                 order.getPhone(),
+
+                order.getSubtotal(),
+                order.getShippingCost(),
                 order.getTotal(),
-                order.getStatus()
-                        .name(),
+
+                order.getStatus().name(),
                 order.getCreatedAt(),
                 order.getPaymentId(),
+
                 order.getStreet(),
                 order.getNumber(),
                 order.getApartment(),
                 order.getCity(),
                 order.getRegion(),
                 order.getExtraInfo(),
+
+                order.getShippingRateId(),
+                order.getShippingType(),
+                order.getShippingLabel(),
+                order.getShippingCarrier(),
+                order.getShippingFree(),
+                order.getEstimatedMinDays(),
+                order.getEstimatedMaxDays(),
+
                 itemDTOs
         );
     }

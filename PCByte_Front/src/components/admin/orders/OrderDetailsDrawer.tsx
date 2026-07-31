@@ -6,12 +6,16 @@ import {
   CalendarDays,
   CircleDollarSign,
   CreditCard,
+  Loader2,
   Mail,
   MapPin,
   Package,
   Phone,
+  RotateCcw,
+  Truck,
   UserRound,
   X,
+  XCircle,
 } from "lucide-react";
 
 import OrderStatusBadge from "./OrderStatusBadge";
@@ -46,21 +50,55 @@ interface OrderDrawerUser {
 
 export interface OrderDrawerData {
   id: number;
+
   paymentId?: string | number | null;
+
   userId?: number | null;
+
   customerEmail?: string;
+
   email?: string;
+
   fullName?: string;
+
   phone?: string;
+
   street?: string;
+
   number?: string;
+
   apartment?: string | null;
+
   city?: string;
+
   region?: string;
+
   extraInfo?: string | null;
+
+  subtotal?: number;
+
+  shippingCost?: number;
+
   total?: number;
+
+  shippingRateId?: number | null;
+
+  shippingType?: string | null;
+
+  shippingLabel?: string | null;
+
+  shippingCarrier?: string | null;
+
+  shippingFree?: boolean;
+
+  estimatedMinDays?: number | null;
+
+  estimatedMaxDays?: number | null;
+
   status?: string | null;
+
   createdAt?: string;
+
   user?: OrderDrawerUser | null;
 
   /*
@@ -68,12 +106,15 @@ export interface OrderDrawerData {
    * El DTO del Área Cliente utiliza items.
    */
   orderItems?: OrderDrawerItem[];
+
   items?: OrderDrawerItem[];
 }
 
 interface OrderDetailsDrawerProps {
   order: OrderDrawerData | null;
+
   isOpen: boolean;
+
   updating?: boolean;
 
   /*
@@ -92,6 +133,29 @@ interface OrderDetailsDrawerProps {
    * "Mi compra"
    */
   title?: string;
+
+  /*
+   * Estado de procesamiento exclusivo para
+   * las acciones del cliente.
+   */
+  processingClientAction?: boolean;
+
+  /*
+   * Acción exclusiva del Área Cliente.
+   * Genera una nueva preferencia de pago
+   * para la misma orden pendiente.
+   */
+  onRetryPayment?: (
+    orderId: number
+  ) => void;
+
+  /*
+   * Acción exclusiva del Área Cliente.
+   * Cancela una orden que todavía está pendiente.
+   */
+  onCancelOrder?: (
+    orderId: number
+  ) => void;
 
   onClose: () => void;
 
@@ -226,12 +290,125 @@ const getNormalizedStatus = (
   return "PENDIENTE";
 };
 
+const getShippingTypeLabel = (
+  shippingType?: string | null
+) => {
+  if (!shippingType) {
+    return "No informado";
+  }
+
+  const normalized =
+    shippingType
+      .trim()
+      .toUpperCase();
+
+  switch (normalized) {
+    case "HOME_DELIVERY":
+      return "Despacho a domicilio";
+
+    case "EXPRESS":
+    case "EXPRESS_DELIVERY":
+      return "Despacho express";
+
+    case "STORE_PICKUP":
+    case "PICKUP":
+      return "Retiro";
+
+    default:
+      return shippingType
+        .replaceAll("_", " ")
+        .toLowerCase()
+        .replace(
+          /(^|\s)\S/g,
+          (letter) =>
+            letter.toUpperCase()
+        );
+  }
+};
+
+const getEstimatedDeliveryText = (
+  minDays?: number | null,
+  maxDays?: number | null
+) => {
+  if (
+    minDays == null &&
+    maxDays == null
+  ) {
+    return "No informado";
+  }
+
+  if (
+    minDays != null &&
+    maxDays != null
+  ) {
+    if (
+      minDays === maxDays
+    ) {
+      return `${minDays} ${
+        minDays === 1
+          ? "día hábil"
+          : "días hábiles"
+      }`;
+    }
+
+    return `${minDays} a ${maxDays} días hábiles`;
+  }
+
+  if (
+    minDays != null
+  ) {
+    return `Desde ${minDays} ${
+      minDays === 1
+        ? "día hábil"
+        : "días hábiles"
+    }`;
+  }
+
+  return `Hasta ${maxDays} ${
+    maxDays === 1
+      ? "día hábil"
+      : "días hábiles"
+  }`;
+};
+
+const calculateItemsSubtotal = (
+  items: OrderDrawerItem[]
+) => {
+  return items.reduce(
+    (
+      accumulator,
+      item
+    ) => {
+      const quantity =
+        Number(
+          item.quantity ??
+          0
+        );
+
+      const price =
+        Number(
+          item.price ??
+          0
+        );
+
+      return (
+        accumulator +
+        quantity * price
+      );
+    },
+    0
+  );
+};
+
 const OrderDetailsDrawer = ({
   order,
   isOpen,
   updating = false,
   readonly = false,
   title,
+  processingClientAction = false,
+  onRetryPayment,
+  onCancelOrder,
   onClose,
   onStatusChange,
 }: OrderDetailsDrawerProps) => {
@@ -246,6 +423,13 @@ const OrderDetailsDrawer = ({
     getNormalizedStatus(
       order.status
     );
+
+    const paymentStatus: OrderStatus =
+  status === "CANCELADO"
+    ? "CANCELADO"
+    : order.paymentId
+      ? "PAGADO"
+      : "PENDIENTE";
 
   const items =
     order.orderItems ??
@@ -281,9 +465,63 @@ const OrderDetailsDrawer = ({
     .filter(Boolean)
     .join(", ");
 
+  /*
+   * Administración:
+   * permite actualizar el estado de la orden.
+   */
   const canUpdateStatus =
     !readonly &&
     Boolean(onStatusChange);
+
+  /*
+   * Área Cliente:
+   * muestra acciones únicamente en órdenes pendientes.
+   *
+   * readonly debe ser true para evitar que estos botones
+   * aparezcan en el Drawer del administrador.
+   */
+  const canManagePendingOrder =
+    readonly &&
+    status === "PENDIENTE" &&
+    Boolean(onRetryPayment) &&
+    Boolean(onCancelOrder);
+
+  const calculatedSubtotal =
+    calculateItemsSubtotal(
+      items
+    );
+
+  const subtotal =
+    order.subtotal ??
+    calculatedSubtotal;
+
+  const shippingCost =
+    order.shippingCost ??
+    Math.max(
+      Number(order.total ?? 0) -
+        subtotal,
+      0
+    );
+
+  const isFreeShipping =
+    order.shippingFree === true ||
+    shippingCost === 0;
+
+  const shippingMethod =
+    order.shippingLabel?.trim() ||
+    getShippingTypeLabel(
+      order.shippingType
+    );
+
+  const shippingCarrier =
+    order.shippingCarrier?.trim() ||
+    "No informado";
+
+  const estimatedDelivery =
+    getEstimatedDeliveryText(
+      order.estimatedMinDays,
+      order.estimatedMaxDays
+    );
 
   return (
     <div className="fixed inset-0 z-[300]">
@@ -291,6 +529,7 @@ const OrderDetailsDrawer = ({
         type="button"
         aria-label="Cerrar detalle del pedido"
         onClick={onClose}
+        disabled={processingClientAction}
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
       />
 
@@ -326,7 +565,10 @@ const OrderDetailsDrawer = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              disabled={
+                processingClientAction
+              }
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Cerrar"
             >
               <X size={19} />
@@ -429,6 +671,61 @@ const OrderDetailsDrawer = ({
           </section>
 
           <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                <Truck
+                  size={19}
+                />
+              </div>
+
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.17em] text-slate-400">
+                  Información de despacho
+                </p>
+
+                <h3 className="mt-1 text-base font-black text-slate-900">
+                  {shippingMethod}
+                </h3>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <TextDetail
+                label="Transportista"
+                value={
+                  shippingCarrier
+                }
+              />
+
+              <TextDetail
+                label="Entrega estimada"
+                value={
+                  estimatedDelivery
+                }
+              />
+
+              <TextDetail
+                label="Costo de despacho"
+                value={
+                  isFreeShipping
+                    ? "Gratis"
+                    : formatCurrency(
+                        shippingCost
+                      )
+                }
+                emphasized
+              />
+
+              <TextDetail
+                label="Tipo de despacho"
+                value={getShippingTypeLabel(
+                  order.shippingType
+                )}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -449,13 +746,9 @@ const OrderDetailsDrawer = ({
               </div>
 
               <OrderStatusBadge
-                status={
-                  order.paymentId
-                    ? "PAGADO"
-                    : "PENDIENTE"
-                }
-                compact
-              />
+  status={paymentStatus}
+  compact
+/>
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -468,12 +761,14 @@ const OrderDetailsDrawer = ({
               />
 
               <TextDetail
-                label="Total confirmado"
-                value={formatCurrency(
-                  order.total
-                )}
-                emphasized
-              />
+  label={
+    status === "CANCELADO"
+      ? "Total del pedido"
+      : "Total confirmado"
+  }
+  value={formatCurrency(order.total)}
+  emphasized
+/>
             </div>
           </section>
 
@@ -530,7 +825,7 @@ const OrderDetailsDrawer = ({
                           0
                       );
 
-                    const subtotal =
+                    const itemSubtotal =
                       quantity *
                       unitPrice;
 
@@ -582,7 +877,7 @@ const OrderDetailsDrawer = ({
 
                         <p className="shrink-0 text-sm font-black text-slate-900">
                           {formatCurrency(
-                            subtotal
+                            itemSubtotal
                           )}
                         </p>
                       </div>
@@ -592,16 +887,44 @@ const OrderDetailsDrawer = ({
               </div>
             )}
 
-            <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
-              <p className="text-xs font-black uppercase tracking-wider text-slate-500">
-                Total del pedido
-              </p>
+            <div className="mt-5 space-y-3 border-t border-slate-200 pt-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-500">
+                  Subtotal
+                </p>
 
-              <p className="text-2xl font-black tracking-tight text-slate-900">
-                {formatCurrency(
-                  order.total
-                )}
-              </p>
+                <p className="text-sm font-black text-slate-900">
+                  {formatCurrency(
+                    subtotal
+                  )}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-slate-500">
+                  Despacho
+                </p>
+
+                <p className="text-sm font-black text-slate-900">
+                  {isFreeShipping
+                    ? "Gratis"
+                    : formatCurrency(
+                        shippingCost
+                      )}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  Total del pedido
+                </p>
+
+                <p className="text-2xl font-black tracking-tight text-slate-900">
+                  {formatCurrency(
+                    order.total
+                  )}
+                </p>
+              </div>
             </div>
           </section>
 
@@ -652,13 +975,83 @@ const OrderDetailsDrawer = ({
         </div>
 
         <footer className="border-t border-slate-200 bg-white p-5 sm:px-7">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-xl bg-slate-900 px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0066FF]"
-          >
-            Cerrar detalle
-          </button>
+          {canManagePendingOrder ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() =>
+                  onCancelOrder?.(
+                    order.id
+                  )
+                }
+                disabled={
+                  processingClientAction
+                }
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {processingClientAction ? (
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <XCircle
+                    size={16}
+                  />
+                )}
+
+                Cancelar orden
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  onRetryPayment?.(
+                    order.id
+                  )
+                }
+                disabled={
+                  processingClientAction
+                }
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0052cc] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {processingClientAction ? (
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <RotateCcw
+                    size={16}
+                  />
+                )}
+
+                Realizar pago
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={
+                  processingClientAction
+                }
+                className="w-full rounded-xl bg-slate-900 px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
+              >
+                Cerrar detalle
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={
+                processingClientAction
+              }
+              className="w-full rounded-xl bg-slate-900 px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0066FF] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cerrar detalle
+            </button>
+          )}
         </footer>
       </aside>
     </div>
@@ -667,7 +1060,9 @@ const OrderDetailsDrawer = ({
 
 interface InformationItemProps {
   icon: ReactNode;
+
   label: string;
+
   value: string;
 }
 
@@ -695,7 +1090,9 @@ const InformationItem = ({
 
 interface TextDetailProps {
   label: string;
+
   value: string;
+
   emphasized?: boolean;
 }
 

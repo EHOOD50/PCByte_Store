@@ -342,13 +342,6 @@ function App() {
     );
   };
 
-  /*
-   * Mantiene una referencia estable entre renders.
-   *
-   * Esto evita que SuccessPage vuelva a ejecutar
-   * continuamente su useEffect después de confirmar
-   * una compra.
-   */
   const clearCart =
     useCallback(() => {
       setCart(
@@ -421,9 +414,12 @@ function App() {
     }
   };
 
-  const handleGuestContinue = () => {
-  navigate("/checkout");
-};
+  const handleGuestContinue =
+    () => {
+      navigate(
+        "/checkout"
+      );
+    };
 
   const processedProducts =
     useMemo(() => {
@@ -519,7 +515,12 @@ function App() {
         productsPerPage
     );
 
-  const cartTotal =
+  /*
+   * Corresponde solamente al valor de los productos.
+   *
+   * No incluye despacho.
+   */
+  const cartSubtotal =
     cart.reduce(
       (
         accumulator,
@@ -884,8 +885,8 @@ function App() {
                 cart={
                   cart
                 }
-                total={
-                  cartTotal
+                subtotal={
+                  cartSubtotal
                 }
                 onBack={() => {
                   if (

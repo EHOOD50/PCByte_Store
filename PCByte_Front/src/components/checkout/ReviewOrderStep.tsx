@@ -42,6 +42,7 @@ interface ReviewOrderStepProps {
   isLoading: boolean;
 
   onBack: () => void;
+  onAddMoreProducts: () => void;
   onConfirm: () => void;
 }
 
@@ -81,6 +82,7 @@ export const ReviewOrderStep = ({
   total,
   isLoading,
   onBack,
+  onAddMoreProducts,
   onConfirm,
 }: ReviewOrderStepProps) => {
   const customerName =
@@ -95,6 +97,17 @@ export const ReviewOrderStep = ({
   const isValid =
     paymentMethod !== null &&
     cart.length > 0;
+
+  const totalItems =
+    cart.reduce(
+      (
+        totalQuantity,
+        item
+      ) =>
+        totalQuantity +
+        item.quantity,
+      0
+    );
 
   return (
     <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:p-7">
@@ -326,6 +339,40 @@ export const ReviewOrderStep = ({
               {formatCurrency(total)}
             </span>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-[#0066FF]/20 bg-[#0066FF]/5 p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0066FF]/10 text-[#0066FF]">
+              <ShoppingBag size={17} />
+            </div>
+
+            <div>
+              <p className="text-sm font-black text-slate-900">
+                ¿Olvidaste agregar algún producto?
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Puedes volver al catálogo sin perder los datos ingresados ni los productos actuales.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              onAddMoreProducts
+            }
+            disabled={
+              isLoading
+            }
+            className="flex min-h-[46px] shrink-0 items-center justify-center gap-2 rounded-xl border border-[#0066FF]/25 bg-white px-5 text-xs font-black uppercase text-[#0066FF] transition hover:border-[#0066FF] hover:bg-[#0066FF] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ShoppingBag size={17} />
+            Agregar más productos ({totalItems})
+          </button>
         </div>
       </div>
 

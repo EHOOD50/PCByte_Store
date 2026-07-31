@@ -10,6 +10,24 @@ import type {
 
 interface CheckoutSummaryProps {
   cart: CartItem[];
+
+  /*
+   * Valor exclusivo de los productos.
+   */
+  subtotal: number;
+
+  /*
+   * null significa que todavía no existe
+   * una tarifa de despacho seleccionada.
+   *
+   * 0 significa que el despacho fue
+   * seleccionado y es gratuito.
+   */
+  shippingCost: number | null;
+
+  /*
+   * Subtotal + despacho.
+   */
   total: number;
 }
 
@@ -28,14 +46,29 @@ const formatCurrency = (
 
 export const CheckoutSummary = ({
   cart,
+  subtotal,
+  shippingCost,
   total,
 }: CheckoutSummaryProps) => {
-  const totalUnits = cart.reduce(
-    (accumulator, item) =>
-      accumulator +
-      item.quantity,
-    0
-  );
+  const totalUnits =
+    cart.reduce(
+      (
+        accumulator,
+        item
+      ) =>
+        accumulator +
+        item.quantity,
+      0
+    );
+
+  const shippingText =
+    shippingCost === null
+      ? "----"
+      : shippingCost === 0
+        ? "Gratis"
+        : formatCurrency(
+            shippingCost
+          );
 
   return (
     <aside className="flex h-full flex-col rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-4">
@@ -51,63 +84,78 @@ export const CheckoutSummary = ({
         </div>
 
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#97cf00]/15 text-[#6f9900]">
-          <PackageCheck size={19} />
+          <PackageCheck
+            size={19}
+          />
         </div>
       </div>
 
-      <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
-        {cart.map((item) => {
-          const itemSubtotal =
-            item.product.price *
-            item.quantity;
+      <div className="custom-scrollbar mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1">
+        {cart.map(
+          (item) => {
+            const itemSubtotal =
+              item.product.price *
+              item.quantity;
 
-          return (
-            <article
-              key={item.product.id}
-              className="flex gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3"
-            >
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
-                {item.product.imageUrl ? (
-                  <img
-                    src={
-                      item.product.imageUrl
-                    }
-                    alt={
-                      item.product.name
-                    }
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <PackageCheck
-                    size={20}
-                    className="text-slate-300"
-                  />
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-xs font-black leading-5 text-slate-700">
-                  {item.product.name}
-                </p>
-
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-[#0066FF]">
-                    {item.quantity}{" "}
-                    {item.quantity === 1
-                      ? "unidad"
-                      : "unidades"}
-                  </span>
-
-                  <span className="shrink-0 text-xs font-black text-slate-900">
-                    {formatCurrency(
-                      itemSubtotal
-                    )}
-                  </span>
+            return (
+              <article
+                key={
+                  item.product.id
+                }
+                className="flex gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3"
+              >
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white">
+                  {item.product
+                    .imageUrl ? (
+                    <img
+                      src={
+                        item.product
+                          .imageUrl
+                      }
+                      alt={
+                        item.product
+                          .name
+                      }
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <PackageCheck
+                      size={20}
+                      className="text-slate-300"
+                    />
+                  )}
                 </div>
-              </div>
-            </article>
-          );
-        })}
+
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-xs font-black leading-5 text-slate-700">
+                    {
+                      item.product
+                        .name
+                    }
+                  </p>
+
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[#0066FF]">
+                      {
+                        item.quantity
+                      }{" "}
+                      {item.quantity ===
+                      1
+                        ? "unidad"
+                        : "unidades"}
+                    </span>
+
+                    <span className="shrink-0 text-xs font-black text-slate-900">
+                      {formatCurrency(
+                        itemSubtotal
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </article>
+            );
+          }
+        )}
       </div>
 
       <div className="mt-5 border-t border-slate-100 pt-5">
@@ -123,18 +171,40 @@ export const CheckoutSummary = ({
 
         <div className="mt-3 flex items-center justify-between">
           <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+            Subtotal
+          </span>
+
+          <span className="text-xs font-bold text-slate-600">
+            {formatCurrency(
+              subtotal
+            )}
+          </span>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-xs font-black uppercase tracking-wider text-slate-400">
             Despacho
           </span>
 
-          <span className="text-xs font-bold text-slate-500">
-            Se calculará después
+          <span
+            className={`text-xs font-black ${
+              shippingCost ===
+              null
+                ? "text-slate-500"
+                : shippingCost ===
+                    0
+                  ? "text-[#6f9900]"
+                  : "text-slate-700"
+            }`}
+          >
+            {shippingText}
           </span>
         </div>
 
         <div className="mt-5 flex items-end justify-between border-t border-slate-100 pt-5">
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">
-              Total productos
+              Total del pedido
             </p>
 
             <p className="mt-1 text-[10px] text-slate-400">
@@ -143,7 +213,9 @@ export const CheckoutSummary = ({
           </div>
 
           <span className="text-3xl font-black tracking-tight text-[#0066FF]">
-            {formatCurrency(total)}
+            {formatCurrency(
+              total
+            )}
           </span>
         </div>
       </div>
@@ -156,14 +228,17 @@ export const CheckoutSummary = ({
           />
 
           <p className="text-[11px] leading-5 text-slate-600">
-            Tu compra será procesada
-            de forma segura por
-            PCByte.
+            Tu compra será
+            procesada de forma
+            segura por PCByte.
           </p>
         </div>
 
         <div className="flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
-          <LockKeyhole size={13} />
+          <LockKeyhole
+            size={13}
+          />
+
           Pago protegido
         </div>
       </div>

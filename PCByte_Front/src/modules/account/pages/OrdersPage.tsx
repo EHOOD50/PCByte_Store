@@ -5,14 +5,23 @@ import {
 
 import {
   AlertCircle,
+  CheckCircle2,
   Loader2,
   PackageSearch,
   RefreshCw,
 } from "lucide-react";
 
-import { useAuth } from "../../../hooks/useAuth";
+import toast from "react-hot-toast";
 
+import {
+  cancelCustomerOrder,
+  retryOrderPayment,
+} from "../../../api/customerOrderApi";
+
+import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import OrderDetailsDrawer from "../../../components/admin/orders/OrderDetailsDrawer";
+
+import { useAuth } from "../../../hooks/useAuth";
 
 import OrderCard from "../components/OrderCard";
 import useOrders from "../hooks/useOrders";
@@ -20,6 +29,17 @@ import useOrders from "../hooks/useOrders";
 import type {
   OrderResponse,
 } from "../types/account";
+
+const PENDING_ORDER_KEY =
+  "pcbyte_pending_order_v1";
+
+interface ActionMessage {
+  type:
+    | "success"
+    | "error";
+
+  text: string;
+}
 
 const formatOrderDate = (
   value: string
@@ -45,6 +65,59 @@ const formatOrderDate = (
   ).format(date);
 };
 
+const getRequestErrorMessage = (
+  requestError: unknown,
+  fallbackMessage: string
+): string => {
+  if (
+    typeof requestError ===
+      "object" &&
+    requestError !== null &&
+    "response" in requestError
+  ) {
+    const axiosError =
+      requestError as {
+        response?: {
+          data?:
+            | {
+                message?: string;
+              }
+            | string;
+        };
+      };
+
+    const responseData =
+      axiosError.response?.data;
+
+    if (
+      typeof responseData ===
+        "string" &&
+      responseData.trim()
+    ) {
+      return responseData;
+    }
+
+    if (
+      typeof responseData ===
+        "object" &&
+      responseData !== null &&
+      responseData.message?.trim()
+    ) {
+      return responseData.message;
+    }
+  }
+
+  if (
+    requestError instanceof
+      Error &&
+    requestError.message.trim()
+  ) {
+    return requestError.message;
+  }
+
+  return fallbackMessage;
+};
+
 const OrdersPage = () => {
   const {
     user,
@@ -64,6 +137,28 @@ const OrdersPage = () => {
     setSelectedOrder,
   ] =
     useState<OrderResponse | null>(
+      null
+    );
+
+  const [
+    processingClientAction,
+    setProcessingClientAction,
+  ] =
+    useState(false);
+
+  const [
+    actionMessage,
+    setActionMessage,
+  ] =
+    useState<ActionMessage | null>(
+      null
+    );
+
+  const [
+    confirmCancelOrderId,
+    setConfirmCancelOrderId,
+  ] =
+    useState<number | null>(
       null
     );
 
@@ -104,6 +199,221 @@ const OrdersPage = () => {
     }, [
       orders,
     ]);
+
+  const handleOpenOrder = (
+    order: OrderResponse
+  ) => {
+    setActionMessage(
+      null
+    );
+
+    setSelectedOrder(
+      order
+    );
+  };
+
+  const handleCloseDrawer =
+    () => {
+      if (
+        processingClientAction
+      ) {
+        return;
+      }
+
+      setSelectedOrder(
+        null
+      );
+
+      setActionMessage(
+        null
+      );
+
+      setConfirmCancelOrderId(
+        null
+      );
+    };
+
+  const handleRetryPayment =
+    async (
+      orderId: number
+    ) => {
+      if (
+        processingClientAction
+      ) {
+        return;
+      }
+
+      setProcessingClientAction(
+        true
+      );
+
+      setActionMessage(
+        null
+      );
+
+      try {
+        const response =
+          await retryOrderPayment(
+            orderId
+          );
+
+        const checkoutUrl =
+          response.checkoutUrl;
+
+        const returnedOrderId =
+          response.orderId ??
+          orderId;
+
+        if (
+          !checkoutUrl ||
+          !checkoutUrl.trim()
+        ) {
+          throw new Error(
+            "El servidor no devolvió una URL de pago válida."
+          );
+        }
+
+        if (
+          !Number.isInteger(
+            returnedOrderId
+          ) ||
+          returnedOrderId <= 0
+        ) {
+          throw new Error(
+            "El servidor no devolvió un número de orden válido."
+          );
+        }
+
+        localStorage.setItem(
+          PENDING_ORDER_KEY,
+          String(
+            returnedOrderId
+          )
+        );
+
+        window.location.href =
+          checkoutUrl;
+      } catch (
+        requestError: unknown
+      ) {
+        console.error(
+          "Error al reintentar el pago:",
+          requestError
+        );
+
+        const errorMessage =
+          getRequestErrorMessage(
+            requestError,
+            "No fue posible preparar nuevamente el pago."
+          );
+
+        setActionMessage({
+          type: "error",
+          text: errorMessage,
+        });
+
+        toast.error(
+          errorMessage
+        );
+
+        setProcessingClientAction(
+          false
+        );
+      }
+    };
+
+  const handleCancelOrder = (
+    orderId: number
+  ) => {
+    if (
+      processingClientAction
+    ) {
+      return;
+    }
+
+    setConfirmCancelOrderId(
+      orderId
+    );
+  };
+
+  const confirmCancelOrder =
+    async () => {
+      if (
+        confirmCancelOrderId ===
+        null
+      ) {
+        return;
+      }
+
+      const orderId =
+        confirmCancelOrderId;
+
+      setProcessingClientAction(
+        true
+      );
+
+      setActionMessage(
+        null
+      );
+
+      try {
+        const cancelledOrder =
+          await cancelCustomerOrder(
+            orderId
+          );
+
+        setSelectedOrder(
+          cancelledOrder
+        );
+
+        const storedPendingOrderId =
+          Number(
+            localStorage.getItem(
+              PENDING_ORDER_KEY
+            )
+          );
+
+        if (
+          storedPendingOrderId ===
+          orderId
+        ) {
+          localStorage.removeItem(
+            PENDING_ORDER_KEY
+          );
+        }
+
+        await reload();
+
+        toast.success(
+          `El pedido #${orderId} fue cancelado correctamente.`
+        );
+
+        setConfirmCancelOrderId(
+          null
+        );
+      } catch (
+        requestError: unknown
+      ) {
+        console.error(
+          "Error al cancelar la orden:",
+          requestError
+        );
+
+        const errorMessage =
+          getRequestErrorMessage(
+            requestError,
+            "No fue posible cancelar el pedido."
+          );
+
+        toast.error(
+          errorMessage
+        );
+      } finally {
+        setProcessingClientAction(
+          false
+        );
+      }
+    };
 
   return (
     <>
@@ -156,6 +466,36 @@ const OrdersPage = () => {
           </div>
         </section>
 
+        {actionMessage && (
+          <section
+            className={`flex items-start gap-3 rounded-2xl border px-5 py-4 shadow-sm ${
+              actionMessage.type ===
+              "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-600"
+            }`}
+          >
+            {actionMessage.type ===
+            "success" ? (
+              <CheckCircle2
+                size={20}
+                className="mt-0.5 shrink-0"
+              />
+            ) : (
+              <AlertCircle
+                size={20}
+                className="mt-0.5 shrink-0"
+              />
+            )}
+
+            <p className="text-sm font-bold leading-6">
+              {
+                actionMessage.text
+              }
+            </p>
+          </section>
+        )}
+
         {loading && (
           <section className="flex min-h-72 items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
             <div className="text-center">
@@ -195,6 +535,10 @@ const OrdersPage = () => {
               <button
                 type="button"
                 onClick={() => {
+                  setActionMessage(
+                    null
+                  );
+
                   void reload();
                 }}
                 className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-5 py-3 text-xs font-black uppercase text-white transition hover:bg-[#0052cc]"
@@ -263,7 +607,7 @@ const OrdersPage = () => {
                       0
                     )}
                     onViewDetail={() =>
-                      setSelectedOrder(
+                      handleOpenOrder(
                         order
                       )
                     }
@@ -284,10 +628,51 @@ const OrdersPage = () => {
         }
         readonly
         title="Mi compra"
-        onClose={() =>
-          setSelectedOrder(
+        processingClientAction={
+          processingClientAction
+        }
+        onRetryPayment={
+          handleRetryPayment
+        }
+        onCancelOrder={
+          handleCancelOrder
+        }
+        onClose={
+          handleCloseDrawer
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={
+          confirmCancelOrderId !==
+          null
+        }
+        title="Cancelar pedido"
+        message={
+          confirmCancelOrderId !==
+          null
+            ? `¿Deseas cancelar el pedido #${confirmCancelOrderId}?`
+            : ""
+        }
+        confirmText="Cancelar pedido"
+        cancelText="Volver"
+        variant="danger"
+        isProcessing={
+          processingClientAction
+        }
+        onCancel={() => {
+          if (
+            processingClientAction
+          ) {
+            return;
+          }
+
+          setConfirmCancelOrderId(
             null
-          )
+          );
+        }}
+        onConfirm={
+          confirmCancelOrder
         }
       />
     </>

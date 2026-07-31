@@ -43,6 +43,7 @@ import type {
 
 import type {
   ShippingMethod,
+  ShippingQuote,
 } from "../components/checkout/ShippingStep";
 
 import type {
@@ -51,34 +52,63 @@ import type {
 
 interface CheckoutPageProps {
   cart: CartItem[];
-  total: number;
+
+  /*
+   * Valor exclusivo de los productos.
+   *
+   * No incluye despacho.
+   */
+  subtotal: number;
+
   onBack: () => void;
+
   clearCart: () => void;
 }
 
 interface StoredCheckoutState {
   currentStep: CheckoutStep;
+
   informationData: GuestInformationData;
+
   addressData: CheckoutAddressData;
+
   shippingMethod: ShippingMethod | null;
+
+  selectedShippingQuote: ShippingQuote | null;
+
   paymentMethod: PaymentMethod | null;
 
   /*
    * Representa los productos y cantidades que tenía
    * el carrito cuando se guardó la sesión.
-   *
-   * Si cambia, el checkout vuelve al paso de despacho.
    */
   cartSignature: string;
 }
 
+interface InitialCheckoutContext {
+  storedCheckout: StoredCheckoutState | null;
+
+  pendingOrderId: number | null;
+
+  paymentReturn:
+    | "failure"
+    | "pending"
+    | null;
+
+  cartChanged: boolean;
+}
+
 interface PaymentNotice {
-  type: "failure" | "pending";
+  type:
+    | "failure"
+    | "pending";
+
   message: string;
 }
 
 interface PaymentPreferenceResponse {
   checkoutUrl?: string;
+
   orderId?: number;
 }
 
@@ -119,21 +149,53 @@ const isCheckoutStep = (
   value: unknown
 ): value is CheckoutStep => {
   return (
-    typeof value === "string" &&
+    typeof value ===
+      "string" &&
     validCheckoutSteps.includes(
       value as CheckoutStep
     )
   );
 };
 
-/*
- * Genera una firma estable a partir de:
- *
- * - ID del producto
- * - cantidad
- *
- * El orden de los productos no afecta el resultado.
- */
+const isShippingQuote = (
+  value: unknown
+): value is ShippingQuote => {
+  if (
+    typeof value !==
+      "object" ||
+    value === null
+  ) {
+    return false;
+  }
+
+  const quote =
+    value as Partial<ShippingQuote>;
+
+  return (
+    typeof quote.shippingRateId ===
+      "number" &&
+    quote.shippingRateId > 0 &&
+    typeof quote.shippingType ===
+      "string" &&
+    typeof quote.label ===
+      "string" &&
+    typeof quote.carrier ===
+      "string" &&
+    typeof quote.originalPrice ===
+      "number" &&
+    typeof quote.cost ===
+      "number" &&
+    typeof quote.freeShipping ===
+      "boolean" &&
+    typeof quote.estimatedMinDays ===
+      "number" &&
+    typeof quote.estimatedMaxDays ===
+      "number" &&
+    typeof quote.available ===
+      "boolean"
+  );
+};
+
 const createCartSignature = (
   cart: CartItem[]
 ): string => {
@@ -146,7 +208,10 @@ const createCartSignature = (
         item.quantity,
     }))
     .sort(
-      (firstItem, secondItem) =>
+      (
+        firstItem,
+        secondItem
+      ) =>
         firstItem.productId -
         secondItem.productId
     )
@@ -181,6 +246,10 @@ const readStoredCheckout =
         !parsed.informationData ||
         !parsed.addressData
       ) {
+        sessionStorage.removeItem(
+          CHECKOUT_SESSION_KEY
+        );
+
         return null;
       }
 
@@ -198,14 +267,17 @@ const readStoredCheckout =
           parsed.shippingMethod ??
           null,
 
+        selectedShippingQuote:
+          isShippingQuote(
+            parsed.selectedShippingQuote
+          )
+            ? parsed.selectedShippingQuote
+            : null,
+
         paymentMethod:
           parsed.paymentMethod ??
           null,
 
-        /*
-         * Compatibilidad con sesiones creadas antes
-         * de agregar cartSignature.
-         */
         cartSignature:
           typeof parsed.cartSignature ===
           "string"
@@ -213,6 +285,10 @@ const readStoredCheckout =
             : "",
       };
     } catch {
+      sessionStorage.removeItem(
+        CHECKOUT_SESSION_KEY
+      );
+
       return null;
     }
   };
@@ -229,7 +305,9 @@ const readPendingOrderId =
     }
 
     const parsedValue =
-      Number(storedValue);
+      Number(
+        storedValue
+      );
 
     if (
       !Number.isInteger(
@@ -252,7 +330,9 @@ const storePendingOrderId = (
 ) => {
   localStorage.setItem(
     PENDING_ORDER_KEY,
-    String(orderId)
+    String(
+      orderId
+    )
   );
 };
 
@@ -263,9 +343,132 @@ const clearPendingOrderId =
     );
   };
 
+const readPaymentReturn =
+  (
+    search: string
+  ):
+    | "failure"
+    | "pending"
+    | null => {
+    const queryParameters =
+      new URLSearchParams(
+        search
+      );
+
+    const paymentReturn =
+      queryParameters.get(
+        "payment"
+      );
+
+    if (
+      paymentReturn ===
+        "failure" ||
+      paymentReturn ===
+        "pending"
+    ) {
+      return paymentReturn;
+    }
+
+    return null;
+  };
+
+const createInitialCheckoutContext = (
+  cart: CartItem[],
+  search: string
+): InitialCheckoutContext => {
+  const paymentReturn =
+    readPaymentReturn(
+      search
+    );
+
+  const pendingOrderId =
+    readPendingOrderId();
+
+  /*
+   * Una sesión anterior solamente puede recuperarse
+   * cuando existe una orden pendiente o se está regresando
+   * desde Mercado Pago.
+   *
+   * Si no existe ninguna de estas condiciones, se considera
+   * una compra nueva y se elimina cualquier sesión antigua.
+   */
+  const canRestoreCheckout =
+    pendingOrderId !==
+      null ||
+    paymentReturn !==
+      null;
+
+  if (!canRestoreCheckout) {
+    sessionStorage.removeItem(
+      CHECKOUT_SESSION_KEY
+    );
+
+    return {
+      storedCheckout:
+        null,
+
+      pendingOrderId:
+        null,
+
+      paymentReturn:
+        null,
+
+      cartChanged:
+        false,
+    };
+  }
+
+  const storedCheckout =
+    readStoredCheckout();
+
+  const currentCartSignature =
+    createCartSignature(
+      cart
+    );
+
+  const cartChanged =
+    Boolean(
+      storedCheckout &&
+      storedCheckout
+        .cartSignature !==
+        "" &&
+      storedCheckout
+        .cartSignature !==
+        currentCartSignature
+    );
+
+  return {
+    storedCheckout,
+    pendingOrderId,
+    paymentReturn,
+    cartChanged,
+  };
+};
+
+const getShippingDescription = (
+  quote: ShippingQuote | null
+): string => {
+  if (!quote) {
+    return "";
+  }
+
+  const daysText =
+    quote.estimatedMinDays ===
+    quote.estimatedMaxDays
+      ? `${quote.estimatedMinDays} ${
+          quote.estimatedMinDays ===
+          1
+            ? "día hábil"
+            : "días hábiles"
+        }`
+      : `${quote.estimatedMinDays} a ${quote.estimatedMaxDays} días hábiles`;
+
+  return `${quote.carrier} · Entrega estimada en ${daysText}`;
+};
+
 export const CheckoutPage = ({
   cart,
-  total,
+  subtotal,
   onBack,
   clearCart,
 }: CheckoutPageProps) => {
@@ -281,64 +484,56 @@ export const CheckoutPage = ({
   } = useAuth();
 
   /*
-   * Determina el paso inicial.
-   *
-   * Reglas:
-   *
-   * 1. Si vuelve desde Mercado Pago con failure o pending,
-   *    regresa al paso de pago.
-   *
-   * 2. Si no existe una sesión previa, comienza en datos.
-   *
-   * 3. Si el carrito cambió respecto de la sesión guardada,
-   *    vuelve al paso de despacho.
-   *
-   * 4. Si el carrito no cambió, retoma el último paso.
+   * Este contexto se calcula una sola vez al montar
+   * CheckoutPage.
    */
+  const [
+    initialCheckoutContext,
+  ] = useState<InitialCheckoutContext>(
+    () =>
+      createInitialCheckoutContext(
+        cart,
+        location.search
+      )
+  );
+
+  const storedCheckout =
+    initialCheckoutContext
+      .storedCheckout;
+
   const [
     currentStep,
     setCurrentStep,
-  ] = useState<CheckoutStep>(() => {
-    const queryParameters =
-      new URLSearchParams(
-        window.location.search
-      );
+  ] = useState<CheckoutStep>(
+    () => {
+      if (
+        initialCheckoutContext
+          .paymentReturn !==
+        null
+      ) {
+        return "payment";
+      }
 
-    const paymentReturn =
-      queryParameters.get(
-        "payment"
-      );
+      if (!storedCheckout) {
+        return "information";
+      }
 
-    if (
-      paymentReturn === "failure" ||
-      paymentReturn === "pending"
-    ) {
-      return "payment";
+      /*
+       * Si se agregaron o modificaron productos en una
+       * orden pendiente, Datos y Dirección se conservan,
+       * pero el despacho debe calcularse nuevamente.
+       */
+      if (
+        initialCheckoutContext
+          .cartChanged
+      ) {
+        return "shipping";
+      }
+
+      return storedCheckout
+        .currentStep;
     }
-
-    const storedCheckout =
-      readStoredCheckout();
-
-    if (!storedCheckout) {
-      return "information";
-    }
-
-    const currentCartSignature =
-      createCartSignature(
-        cart
-      );
-
-    if (
-      storedCheckout.cartSignature !==
-      "" &&
-      storedCheckout.cartSignature !==
-        currentCartSignature
-    ) {
-      return "shipping";
-    }
-
-    return storedCheckout.currentStep;
-  });
+  );
 
   const [
     informationData,
@@ -346,7 +541,7 @@ export const CheckoutPage = ({
   ] =
     useState<GuestInformationData>(
       () =>
-        readStoredCheckout()
+        storedCheckout
           ?.informationData ??
         initialGuestInformation
     );
@@ -357,7 +552,7 @@ export const CheckoutPage = ({
   ] =
     useState<CheckoutAddressData>(
       () =>
-        readStoredCheckout()
+        storedCheckout
           ?.addressData ??
         initialAddress
     );
@@ -367,10 +562,41 @@ export const CheckoutPage = ({
     setShippingMethod,
   ] =
     useState<ShippingMethod | null>(
-      () =>
-        readStoredCheckout()
-          ?.shippingMethod ??
-        null
+      () => {
+        if (
+          initialCheckoutContext
+            .cartChanged
+        ) {
+          return null;
+        }
+
+        return (
+          storedCheckout
+            ?.shippingMethod ??
+          null
+        );
+      }
+    );
+
+  const [
+    selectedShippingQuote,
+    setSelectedShippingQuote,
+  ] =
+    useState<ShippingQuote | null>(
+      () => {
+        if (
+          initialCheckoutContext
+            .cartChanged
+        ) {
+          return null;
+        }
+
+        return (
+          storedCheckout
+            ?.selectedShippingQuote ??
+          null
+        );
+      }
     );
 
   const [
@@ -378,10 +604,20 @@ export const CheckoutPage = ({
     setPaymentMethod,
   ] =
     useState<PaymentMethod | null>(
-      () =>
-        readStoredCheckout()
-          ?.paymentMethod ??
-        null
+      () => {
+        if (
+          initialCheckoutContext
+            .cartChanged
+        ) {
+          return null;
+        }
+
+        return (
+          storedCheckout
+            ?.paymentMethod ??
+          null
+        );
+      }
     );
 
   const [
@@ -406,22 +642,42 @@ export const CheckoutPage = ({
     orderNumber,
     setOrderNumber,
   ] = useState<string | null>(
-    () => {
-      const pendingOrderId =
-        readPendingOrderId();
-
-      return pendingOrderId
+    () =>
+      initialCheckoutContext
+        .pendingOrderId !==
+      null
         ? String(
-            pendingOrderId
+            initialCheckoutContext
+              .pendingOrderId
           )
-        : null;
-    }
+        : null
   );
 
-  /*
-   * Completa los datos del comprador cuando
-   * existe un usuario autenticado.
-   */
+  const shippingCost =
+    selectedShippingQuote
+      ?.available
+      ? selectedShippingQuote.cost
+      : 0;
+
+  const checkoutTotal =
+    subtotal +
+    shippingCost;
+
+  const shippingLabel =
+    selectedShippingQuote
+      ?.label ??
+    (
+      shippingMethod ===
+      "home_delivery"
+        ? "Despacho a domicilio"
+        : "No seleccionado"
+    );
+
+  const shippingDescription =
+    getShippingDescription(
+      selectedShippingQuote
+    );
+
   useEffect(() => {
     if (
       !isAuthenticated ||
@@ -458,18 +714,6 @@ export const CheckoutPage = ({
     user,
   ]);
 
-  /*
-   * Guarda continuamente la sesión del checkout.
-   *
-   * Conserva:
-   *
-   * - paso actual
-   * - comprador
-   * - dirección
-   * - despacho
-   * - pago
-   * - firma del carrito
-   */
   useEffect(() => {
     const storedState: StoredCheckoutState =
       {
@@ -477,6 +721,7 @@ export const CheckoutPage = ({
         informationData,
         addressData,
         shippingMethod,
+        selectedShippingQuote,
         paymentMethod,
 
         cartSignature:
@@ -496,13 +741,11 @@ export const CheckoutPage = ({
     informationData,
     addressData,
     shippingMethod,
+    selectedShippingQuote,
     paymentMethod,
     cart,
   ]);
 
-  /*
-   * Procesa el regreso desde Mercado Pago.
-   */
   useEffect(() => {
     const queryParameters =
       new URLSearchParams(
@@ -521,7 +764,9 @@ export const CheckoutPage = ({
 
     if (returnedOrderId) {
       const parsedOrderId =
-        Number(returnedOrderId);
+        Number(
+          returnedOrderId
+        );
 
       if (
         Number.isInteger(
@@ -542,8 +787,10 @@ export const CheckoutPage = ({
     }
 
     if (
-      paymentReturn !== "failure" &&
-      paymentReturn !== "pending"
+      paymentReturn !==
+        "failure" &&
+      paymentReturn !==
+        "pending"
     ) {
       return;
     }
@@ -559,20 +806,24 @@ export const CheckoutPage = ({
     );
 
     if (
-      paymentReturn === "failure"
+      paymentReturn ===
+      "failure"
     ) {
       setPaymentNotice({
         type: "failure",
+
         message:
           "El pago no fue completado. Puedes revisar la información e intentarlo nuevamente con la misma orden.",
       });
     }
 
     if (
-      paymentReturn === "pending"
+      paymentReturn ===
+      "pending"
     ) {
       setPaymentNotice({
         type: "pending",
+
         message:
           "El pago quedó pendiente de confirmación. Mercado Pago informará el resultado cuando termine de procesarlo.",
       });
@@ -588,6 +839,17 @@ export const CheckoutPage = ({
     location.search,
     navigate,
   ]);
+
+  const clearShippingSelection =
+    () => {
+      setShippingMethod(
+        null
+      );
+
+      setSelectedShippingQuote(
+        null
+      );
+    };
 
   const handleInformationChange = (
     event: React.ChangeEvent<HTMLInputElement>
@@ -621,6 +883,13 @@ export const CheckoutPage = ({
         [name]: value,
       })
     );
+
+    if (
+      name ===
+      "city"
+    ) {
+      clearShippingSelection();
+    }
   };
 
   const handleRegionChange = (
@@ -636,6 +905,8 @@ export const CheckoutPage = ({
         city: "",
       })
     );
+
+    clearShippingSelection();
   };
 
   const handleComplementTypeChange = (
@@ -650,11 +921,42 @@ export const CheckoutPage = ({
         complementType,
 
         complementDetail:
-          complementType === ""
+          complementType ===
+          ""
             ? ""
             : previous
                 .complementDetail,
       })
+    );
+  };
+
+  const handleShippingMethodChange = (
+    method: ShippingMethod
+  ) => {
+    setShippingMethod(
+      method
+    );
+  };
+
+  const handleShippingQuoteChange = (
+    quote: ShippingQuote | null
+  ) => {
+    setSelectedShippingQuote(
+      quote
+    );
+
+    if (
+      quote?.available
+    ) {
+      setShippingMethod(
+        "home_delivery"
+      );
+
+      return;
+    }
+
+    setShippingMethod(
+      null
     );
   };
 
@@ -683,12 +985,34 @@ export const CheckoutPage = ({
     });
   };
 
+  const handleAddMoreProducts =
+    () => {
+      navigate(
+        "/productos"
+      );
+    };
+
   const handlePayment =
     async () => {
       if (
         paymentMethod !==
         "mercado_pago"
       ) {
+        return;
+      }
+
+      if (
+        !selectedShippingQuote ||
+        !selectedShippingQuote.available
+      ) {
+        setPaymentError(
+          "Debes seleccionar una tarifa de despacho válida antes de continuar."
+        );
+
+        setCurrentStep(
+          "shipping"
+        );
+
         return;
       }
 
@@ -802,8 +1126,44 @@ export const CheckoutPage = ({
                   })
                 ),
 
-              total,
+              subtotal,
+
+              shippingRateId:
+                selectedShippingQuote
+                  .shippingRateId,
+
+              shippingType:
+                selectedShippingQuote
+                  .shippingType,
+
               shippingMethod,
+
+              shippingLabel:
+                selectedShippingQuote
+                  .label,
+
+              shippingCarrier:
+                selectedShippingQuote
+                  .carrier,
+
+              shippingCost:
+                selectedShippingQuote
+                  .cost,
+
+              shippingFree:
+                selectedShippingQuote
+                  .freeShipping,
+
+              estimatedMinDays:
+                selectedShippingQuote
+                  .estimatedMinDays,
+
+              estimatedMaxDays:
+                selectedShippingQuote
+                  .estimatedMaxDays,
+
+              total:
+                checkoutTotal,
             }
           );
 
@@ -815,9 +1175,7 @@ export const CheckoutPage = ({
           response.data
             ?.orderId;
 
-        if (
-          !checkoutUrl
-        ) {
+        if (!checkoutUrl) {
           throw new Error(
             "El servidor no devolvió la URL de pago."
           );
@@ -845,18 +1203,19 @@ export const CheckoutPage = ({
           )
         );
 
-        /*
-         * Antes de salir hacia Mercado Pago, registra
-         * explícitamente el estado exacto de la compra.
-         */
         const storedState: StoredCheckoutState =
           {
             currentStep:
               "payment",
 
             informationData,
+
             addressData,
+
             shippingMethod,
+
+            selectedShippingQuote,
+
             paymentMethod,
 
             cartSignature:
@@ -902,9 +1261,11 @@ export const CheckoutPage = ({
           const axiosError =
             requestError as {
               response?: {
-                data?: {
-                  message?: string;
-                } | string;
+                data?:
+                  | {
+                      message?: string;
+                    }
+                  | string;
               };
             };
 
@@ -936,15 +1297,6 @@ export const CheckoutPage = ({
       }
     };
 
-  /*
-   * Se utiliza después de una compra completada.
-   *
-   * En ese caso sí corresponde limpiar:
-   *
-   * - sesión
-   * - orden pendiente
-   * - carrito
-   */
   const handleGoToCatalog =
     () => {
       sessionStorage.removeItem(
@@ -1072,7 +1424,22 @@ export const CheckoutPage = ({
                     shippingMethod
                   }
                   onSelectMethod={
-                    setShippingMethod
+                    handleShippingMethodChange
+                  }
+                  region={
+                    addressData.region
+                  }
+                  city={
+                    addressData.city
+                  }
+                  subtotal={
+                    subtotal
+                  }
+                  selectedQuote={
+                    selectedShippingQuote
+                  }
+                  onQuoteChange={
+                    handleShippingQuoteChange
                   }
                   onBack={() =>
                     goToStep(
@@ -1147,13 +1514,14 @@ export const CheckoutPage = ({
                     addressData
                   }
                   shippingLabel={
-                    shippingMethod ===
-                    "home_delivery"
-                      ? "Despacho a domicilio"
-                      : "No seleccionado"
+                    shippingLabel
                   }
-                  shippingDescription=""
-                  shippingCost={0}
+                  shippingDescription={
+                    shippingDescription
+                  }
+                  shippingCost={
+                    shippingCost
+                  }
                   paymentMethod={
                     paymentMethod
                   }
@@ -1161,7 +1529,7 @@ export const CheckoutPage = ({
                     cart
                   }
                   total={
-                    total
+                    checkoutTotal
                   }
                   isLoading={
                     isLoading
@@ -1170,6 +1538,9 @@ export const CheckoutPage = ({
                     goToStep(
                       "payment"
                     )
+                  }
+                  onAddMoreProducts={
+                    handleAddMoreProducts
                   }
                   onConfirm={
                     handlePayment
@@ -1198,8 +1569,16 @@ export const CheckoutPage = ({
               cart={
                 cart
               }
+              subtotal={
+                subtotal
+              }
+              shippingCost={
+                selectedShippingQuote
+                  ? shippingCost
+                  : null
+              }
               total={
-                total
+                checkoutTotal
               }
             />
           </div>
