@@ -51,52 +51,39 @@ interface OrderDrawerUser {
 export interface OrderDrawerData {
   id: number;
 
-  paymentId?: string | number | null;
+  paymentId?:
+    | string
+    | number
+    | null;
 
   userId?: number | null;
 
   customerEmail?: string;
-
   email?: string;
-
   fullName?: string;
-
   phone?: string;
 
   street?: string;
-
   number?: string;
-
   apartment?: string | null;
-
   city?: string;
-
   region?: string;
-
   extraInfo?: string | null;
 
   subtotal?: number;
-
   shippingCost?: number;
-
   total?: number;
 
   shippingRateId?: number | null;
-
   shippingType?: string | null;
-
   shippingLabel?: string | null;
-
   shippingCarrier?: string | null;
-
   shippingFree?: boolean;
 
   estimatedMinDays?: number | null;
-
   estimatedMaxDays?: number | null;
 
   status?: string | null;
-
   createdAt?: string;
 
   user?: OrderDrawerUser | null;
@@ -106,7 +93,6 @@ export interface OrderDrawerData {
    * El DTO del Área Cliente utiliza items.
    */
   orderItems?: OrderDrawerItem[];
-
   items?: OrderDrawerItem[];
 }
 
@@ -124,8 +110,6 @@ interface OrderDetailsDrawerProps {
   readonly?: boolean;
 
   /*
-   * Permite cambiar el encabezado.
-   *
    * Administración:
    * "Detalle del pedido"
    *
@@ -134,35 +118,18 @@ interface OrderDetailsDrawerProps {
    */
   title?: string;
 
-  /*
-   * Estado de procesamiento exclusivo para
-   * las acciones del cliente.
-   */
   processingClientAction?: boolean;
 
-  /*
-   * Acción exclusiva del Área Cliente.
-   * Genera una nueva preferencia de pago
-   * para la misma orden pendiente.
-   */
   onRetryPayment?: (
     orderId: number
   ) => void;
 
-  /*
-   * Acción exclusiva del Área Cliente.
-   * Cancela una orden que todavía está pendiente.
-   */
   onCancelOrder?: (
     orderId: number
   ) => void;
 
   onClose: () => void;
 
-  /*
-   * Es opcional porque el cliente no puede
-   * modificar el estado de una orden.
-   */
   onStatusChange?: (
     orderId: number,
     status: OrderStatus
@@ -179,7 +146,10 @@ const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 const formatCurrency = (
-  value: number | null | undefined
+  value:
+    | number
+    | null
+    | undefined
 ) => {
   return new Intl.NumberFormat(
     "es-CL",
@@ -233,12 +203,12 @@ const getCustomerName = (
   }
 
   const firstName =
-    order.user?.firstName?.trim() ??
-    "";
+    order.user?.firstName
+      ?.trim() ?? "";
 
   const lastName =
-    order.user?.lastName?.trim() ??
-    "";
+    order.user?.lastName
+      ?.trim() ?? "";
 
   const completeName =
     `${firstName} ${lastName}`.trim();
@@ -354,9 +324,7 @@ const getEstimatedDeliveryText = (
     return `${minDays} a ${maxDays} días hábiles`;
   }
 
-  if (
-    minDays != null
-  ) {
+  if (minDays != null) {
     return `Desde ${minDays} ${
       minDays === 1
         ? "día hábil"
@@ -381,14 +349,12 @@ const calculateItemsSubtotal = (
     ) => {
       const quantity =
         Number(
-          item.quantity ??
-          0
+          item.quantity ?? 0
         );
 
       const price =
         Number(
-          item.price ??
-          0
+          item.price ?? 0
         );
 
       return (
@@ -424,11 +390,15 @@ const OrderDetailsDrawer = ({
       order.status
     );
 
-    const paymentStatus: OrderStatus =
-  status === "CANCELADO"
-    ? "CANCELADO"
-    : order.paymentId
-      ? "PAGADO"
+  const paymentStatus: OrderStatus =
+  order.paymentId ||
+  status === "PAGADO" ||
+  status === "PREPARANDO" ||
+  status === "ENVIADO" ||
+  status === "ENTREGADO"
+    ? "PAGADO"
+    : status === "CANCELADO"
+      ? "CANCELADO"
       : "PENDIENTE";
 
   const items =
@@ -465,21 +435,12 @@ const OrderDetailsDrawer = ({
     .filter(Boolean)
     .join(", ");
 
-  /*
-   * Administración:
-   * permite actualizar el estado de la orden.
-   */
   const canUpdateStatus =
-    !readonly &&
-    Boolean(onStatusChange);
+  !readonly &&
+  Boolean(onStatusChange) &&
+  status !== "ENTREGADO" &&
+  status !== "CANCELADO";
 
-  /*
-   * Área Cliente:
-   * muestra acciones únicamente en órdenes pendientes.
-   *
-   * readonly debe ser true para evitar que estos botones
-   * aparezcan en el Drawer del administrador.
-   */
   const canManagePendingOrder =
     readonly &&
     status === "PENDIENTE" &&
@@ -523,26 +484,41 @@ const OrderDetailsDrawer = ({
       order.estimatedMaxDays
     );
 
+  const productCount =
+    items.reduce(
+      (
+        totalQuantity,
+        item
+      ) =>
+        totalQuantity +
+        Number(
+          item.quantity ?? 0
+        ),
+      0
+    );
+
   return (
     <div className="fixed inset-0 z-[300]">
       <button
         type="button"
         aria-label="Cerrar detalle del pedido"
         onClick={onClose}
-        disabled={processingClientAction}
+        disabled={
+          processingClientAction
+        }
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
       />
 
       <aside className="absolute right-0 top-0 flex h-full w-full max-w-2xl flex-col bg-slate-50 shadow-[-20px_0_60px_rgba(15,23,42,0.22)]">
-        <header className="border-b border-slate-200 bg-white px-5 py-5 sm:px-7">
-          <div className="flex items-start justify-between gap-5">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0066FF]">
+        <header className="border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0066FF]">
                 {drawerTitle}
               </p>
 
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-black tracking-tight text-slate-900">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+                <h2 className="text-xl font-black tracking-tight text-slate-900">
                   Pedido #{order.id}
                 </h2>
 
@@ -551,9 +527,9 @@ const OrderDetailsDrawer = ({
                 />
               </div>
 
-              <p className="mt-2 flex items-center gap-2 text-xs font-bold capitalize text-slate-500">
+              <p className="mt-1.5 flex items-center gap-2 text-[11px] font-bold capitalize text-slate-500">
                 <CalendarDays
-                  size={14}
+                  size={13}
                 />
 
                 {formatDate(
@@ -568,44 +544,63 @@ const OrderDetailsDrawer = ({
               disabled={
                 processingClientAction
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Cerrar"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <X size={19} />
+              <X size={17} />
             </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <HeaderMetric
+              label="Total"
+              value={formatCurrency(
+                order.total
+              )}
+            />
+
+            <HeaderMetric
+              label="Productos"
+              value={String(
+                productCount
+              )}
+            />
+
+            <HeaderMetric
+  label="Pago"
+  value={
+    status === "PENDIENTE"
+      ? "Pendiente"
+      : status === "CANCELADO"
+        ? order.paymentId
+          ? "Mercado Pago"
+          : "Sin pago"
+        : "Mercado Pago"
+  }
+/>
           </div>
         </header>
 
-        <div className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-7">
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0066FF]/10 text-[#0066FF]">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+          <section className="rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm">
+            <SectionHeader
+              icon={
                 <UserRound
-                  size={19}
+                  size={17}
                 />
-              </div>
+              }
+              iconClassName="bg-[#0066FF]/10 text-[#0066FF]"
+              eyebrow="Cliente"
+              title={getCustomerName(
+                order
+              )}
+              badge={customerType}
+            />
 
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.17em] text-slate-400">
-                  Cliente
-                </p>
-
-                <h3 className="mt-1 text-base font-black text-slate-900">
-                  {getCustomerName(
-                    order
-                  )}
-                </h3>
-
-                <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-slate-500">
-                  {customerType}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <InformationItem
                 icon={
-                  <Mail size={16} />
+                  <Mail size={15} />
                 }
                 label="Correo"
                 value={getCustomerEmail(
@@ -615,7 +610,7 @@ const OrderDetailsDrawer = ({
 
               <InformationItem
                 icon={
-                  <Phone size={16} />
+                  <Phone size={15} />
                 }
                 label="Teléfono"
                 value={
@@ -626,32 +621,24 @@ const OrderDetailsDrawer = ({
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#97cf00]/15 text-[#5f8200]">
-                <MapPin
-                  size={19}
-                />
-              </div>
+          <section className="rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm">
+            <SectionHeader
+              icon={
+                <MapPin size={17} />
+              }
+              iconClassName="bg-[#97cf00]/15 text-[#5f8200]"
+              eyebrow="Dirección de entrega"
+              title={
+                addressLine ||
+                "Dirección no disponible"
+              }
+              description={
+                locationLine ||
+                "Ciudad no disponible"
+              }
+            />
 
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.17em] text-slate-400">
-                  Dirección de entrega
-                </p>
-
-                <h3 className="mt-1 text-base font-black text-slate-900">
-                  {addressLine ||
-                    "Dirección no disponible"}
-                </h3>
-
-                <p className="mt-1 text-xs font-bold text-[#0066FF]">
-                  {locationLine ||
-                    "Ciudad no disponible"}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <TextDetail
                 label="Departamento"
                 value={
@@ -670,26 +657,17 @@ const OrderDetailsDrawer = ({
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
-                <Truck
-                  size={19}
-                />
-              </div>
+          <section className="rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm">
+            <SectionHeader
+              icon={
+                <Truck size={17} />
+              }
+              iconClassName="bg-orange-50 text-orange-600"
+              eyebrow="Información de despacho"
+              title={shippingMethod}
+            />
 
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.17em] text-slate-400">
-                  Información de despacho
-                </p>
-
-                <h3 className="mt-1 text-base font-black text-slate-900">
-                  {shippingMethod}
-                </h3>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <TextDetail
                 label="Transportista"
                 value={
@@ -725,74 +703,63 @@ const OrderDetailsDrawer = ({
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <SectionHeader
+                icon={
                   <CreditCard
-                    size={19}
+                    size={17}
                   />
-                </div>
-
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.17em] text-slate-400">
-                    Información de pago
-                  </p>
-
-                  <h3 className="mt-1 text-base font-black text-slate-900">
-                    Mercado Pago
-                  </h3>
-                </div>
-              </div>
+                }
+                iconClassName="bg-blue-50 text-blue-600"
+                eyebrow="Información de pago"
+                title="Mercado Pago"
+              />
 
               <OrderStatusBadge
-  status={paymentStatus}
-  compact
-/>
+                status={
+                  paymentStatus
+                }
+                compact
+              />
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <TextDetail
                 label="ID de pago"
                 value={String(
                   order.paymentId ??
-                    "No disponible"
+                  "No disponible"
                 )}
               />
 
               <TextDetail
-  label={
-    status === "CANCELADO"
-      ? "Total del pedido"
-      : "Total confirmado"
-  }
-  value={formatCurrency(order.total)}
-  emphasized
-/>
+                label={
+                  status ===
+                  "CANCELADO"
+                    ? "Total del pedido"
+                    : "Total confirmado"
+                }
+                value={formatCurrency(
+                  order.total
+                )}
+                emphasized
+              />
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-[1.4rem] border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                  <Package
-                    size={19}
-                  />
-                </div>
+              <SectionHeader
+                icon={
+                  <Package size={17} />
+                }
+                iconClassName="bg-violet-50 text-violet-600"
+                eyebrow="Productos"
+                title="Detalle de la compra"
+              />
 
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.17em] text-slate-400">
-                    Productos
-                  </p>
-
-                  <h3 className="mt-1 text-base font-black text-slate-900">
-                    Detalle de la compra
-                  </h3>
-                </div>
-              </div>
-
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-[9px] font-black uppercase text-slate-500">
+              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[8px] font-black uppercase text-slate-500">
                 {items.length}{" "}
                 {items.length === 1
                   ? "producto"
@@ -801,13 +768,13 @@ const OrderDetailsDrawer = ({
             </div>
 
             {items.length === 0 ? (
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-7 text-center">
-                <p className="text-sm font-black text-slate-600">
+              <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
+                <p className="text-xs font-black text-slate-600">
                   Sin productos registrados
                 </p>
               </div>
             ) : (
-              <div className="mt-5 space-y-3">
+              <div className="mt-4 space-y-2.5">
                 {items.map(
                   (
                     item,
@@ -815,14 +782,12 @@ const OrderDetailsDrawer = ({
                   ) => {
                     const quantity =
                       Number(
-                        item.quantity ??
-                          0
+                        item.quantity ?? 0
                       );
 
                     const unitPrice =
                       Number(
-                        item.price ??
-                          0
+                        item.price ?? 0
                       );
 
                     const itemSubtotal =
@@ -836,9 +801,9 @@ const OrderDetailsDrawer = ({
                           item.productId ??
                           `${order.id}-${index}`
                         }
-                        className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4"
+                        className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3"
                       >
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
                           {item.product
                             ?.imageUrl ? (
                             <img
@@ -850,32 +815,37 @@ const OrderDetailsDrawer = ({
                               alt={getProductName(
                                 item
                               )}
-                              className="h-full w-full object-contain p-1.5"
+                              className="h-full w-full object-contain p-1"
                             />
                           ) : (
                             <Package
-                              size={19}
+                              size={17}
                               className="text-slate-400"
                             />
                           )}
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-black leading-5 text-slate-900">
+                          <p className="line-clamp-2 text-[13px] font-black leading-4 text-slate-900">
                             {getProductName(
                               item
                             )}
                           </p>
 
-                          <p className="mt-1 text-xs text-slate-500">
-                            {quantity} ×{" "}
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            {quantity}{" "}
+                            {quantity === 1
+                              ? "unidad"
+                              : "unidades"}{" "}
+                            ·{" "}
                             {formatCurrency(
                               unitPrice
-                            )}
+                            )}{" "}
+                            c/u
                           </p>
                         </div>
 
-                        <p className="shrink-0 text-sm font-black text-slate-900">
+                        <p className="shrink-0 text-[13px] font-black text-slate-900">
                           {formatCurrency(
                             itemSubtotal
                           )}
@@ -887,39 +857,31 @@ const OrderDetailsDrawer = ({
               </div>
             )}
 
-            <div className="mt-5 space-y-3 border-t border-slate-200 pt-5">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-500">
-                  Subtotal
-                </p>
+            <div className="mt-4 space-y-2.5 border-t border-slate-200 pt-4">
+              <SummaryRow
+                label="Subtotal"
+                value={formatCurrency(
+                  subtotal
+                )}
+              />
 
-                <p className="text-sm font-black text-slate-900">
-                  {formatCurrency(
-                    subtotal
-                  )}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-slate-500">
-                  Despacho
-                </p>
-
-                <p className="text-sm font-black text-slate-900">
-                  {isFreeShipping
+              <SummaryRow
+                label="Despacho"
+                value={
+                  isFreeShipping
                     ? "Gratis"
                     : formatCurrency(
                         shippingCost
-                      )}
-                </p>
-              </div>
+                      )
+                }
+              />
 
-              <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-                <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+              <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
                   Total del pedido
                 </p>
 
-                <p className="text-2xl font-black tracking-tight text-slate-900">
+                <p className="text-xl font-black tracking-tight text-slate-900">
                   {formatCurrency(
                     order.total
                   )}
@@ -933,26 +895,20 @@ const OrderDetailsDrawer = ({
           />
 
           {canUpdateStatus && (
-            <section className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <section className="rounded-[1.4rem] border border-[#0066FF]/20 bg-white p-4 shadow-sm">
+              <SectionHeader
+                icon={
                   <CircleDollarSign
-                    size={19}
+                    size={17}
                   />
-                </div>
+                }
+                iconClassName="bg-amber-50 text-amber-600"
+                eyebrow="Siguiente acción"
+                title="Continuar flujo del pedido"
+                description="Solo se muestra la siguiente transición válida."
+              />
 
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.17em] text-slate-400">
-                    Gestión operativa
-                  </p>
-
-                  <h3 className="mt-1 text-base font-black text-slate-900">
-                    Actualizar estado
-                  </h3>
-                </div>
-              </div>
-
-              <div className="mt-5">
+              <div className="mt-4">
                 <OrderStatusSelect
                   value={status}
                   disabled={updating}
@@ -966,16 +922,12 @@ const OrderDetailsDrawer = ({
                   }
                 />
               </div>
-
-              <p className="mt-3 text-xs leading-5 text-slate-500">
-                El estado seleccionado se reflejará en el Dashboard, las alertas y el módulo de logística.
-              </p>
             </section>
           )}
         </div>
 
-        <footer className="border-t border-slate-200 bg-white p-5 sm:px-7">
-          {canManagePendingOrder ? (
+        {canManagePendingOrder && (
+          <footer className="border-t border-slate-200 bg-white p-4 sm:px-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -987,16 +939,16 @@ const OrderDetailsDrawer = ({
                 disabled={
                   processingClientAction
                 }
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-3 text-[10px] font-black uppercase tracking-wider text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {processingClientAction ? (
                   <Loader2
-                    size={16}
+                    size={15}
                     className="animate-spin"
                   />
                 ) : (
                   <XCircle
-                    size={16}
+                    size={15}
                   />
                 )}
 
@@ -1013,56 +965,104 @@ const OrderDetailsDrawer = ({
                 disabled={
                   processingClientAction
                 }
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0052cc] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-5 py-3 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0052cc] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {processingClientAction ? (
                   <Loader2
-                    size={16}
+                    size={15}
                     className="animate-spin"
                   />
                 ) : (
                   <RotateCcw
-                    size={16}
+                    size={15}
                   />
                 )}
 
                 Realizar pago
               </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={
-                  processingClientAction
-                }
-                className="w-full rounded-xl bg-slate-900 px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2"
-              >
-                Cerrar detalle
-              </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={
-                processingClientAction
-              }
-              className="w-full rounded-xl bg-slate-900 px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0066FF] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Cerrar detalle
-            </button>
-          )}
-        </footer>
+          </footer>
+        )}
       </aside>
+    </div>
+  );
+};
+
+interface SectionHeaderProps {
+  icon: ReactNode;
+  iconClassName: string;
+  eyebrow: string;
+  title: string;
+  description?: string;
+  badge?: string;
+}
+
+const SectionHeader = ({
+  icon,
+  iconClassName,
+  eyebrow,
+  title,
+  description,
+  badge,
+}: SectionHeaderProps) => {
+  return (
+    <div className="flex min-w-0 items-start gap-3">
+      <div
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconClassName}`}
+      >
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[8px] font-black uppercase tracking-[0.17em] text-slate-400">
+          {eyebrow}
+        </p>
+
+        <h3 className="mt-0.5 text-sm font-black leading-5 text-slate-900">
+          {title}
+        </h3>
+
+        {description && (
+          <p className="mt-0.5 text-[10px] font-bold leading-4 text-[#0066FF]">
+            {description}
+          </p>
+        )}
+
+        {badge && (
+          <span className="mt-1.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[7px] font-black uppercase tracking-wider text-slate-500">
+            {badge}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface HeaderMetricProps {
+  label: string;
+  value: string;
+}
+
+const HeaderMetric = ({
+  label,
+  value,
+}: HeaderMetricProps) => {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-[7px] font-black uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-0.5 truncate text-[11px] font-black text-slate-900">
+        {value}
+      </p>
     </div>
   );
 };
 
 interface InformationItemProps {
   icon: ReactNode;
-
   label: string;
-
   value: string;
 }
 
@@ -1072,16 +1072,16 @@ const InformationItem = ({
   value,
 }: InformationItemProps) => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="flex items-center gap-2 text-slate-400">
         {icon}
 
-        <p className="text-[9px] font-black uppercase tracking-wider">
+        <p className="text-[8px] font-black uppercase tracking-wider">
           {label}
         </p>
       </div>
 
-      <p className="mt-2 break-words text-xs font-bold text-slate-700">
+      <p className="mt-1.5 break-words text-[11px] font-bold leading-4 text-slate-700">
         {value}
       </p>
     </div>
@@ -1090,9 +1090,7 @@ const InformationItem = ({
 
 interface TextDetailProps {
   label: string;
-
   value: string;
-
   emphasized?: boolean;
 }
 
@@ -1102,18 +1100,40 @@ const TextDetail = ({
   emphasized = false,
 }: TextDetailProps) => {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-[8px] font-black uppercase tracking-wider text-slate-400">
         {label}
       </p>
 
       <p
-        className={`mt-2 break-words ${
+        className={`mt-1.5 break-words leading-4 ${
           emphasized
-            ? "text-base font-black text-slate-900"
-            : "text-xs font-bold text-slate-700"
+            ? "text-[13px] font-black text-slate-900"
+            : "text-[11px] font-bold text-slate-700"
         }`}
       >
+        {value}
+      </p>
+    </div>
+  );
+};
+
+interface SummaryRowProps {
+  label: string;
+  value: string;
+}
+
+const SummaryRow = ({
+  label,
+  value,
+}: SummaryRowProps) => {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <p className="text-[11px] font-bold text-slate-500">
+        {label}
+      </p>
+
+      <p className="text-[13px] font-black text-slate-900">
         {value}
       </p>
     </div>

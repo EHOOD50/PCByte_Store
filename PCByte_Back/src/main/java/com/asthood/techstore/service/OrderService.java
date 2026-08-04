@@ -174,9 +174,13 @@ public class OrderService {
             );
         }
 
+        /*
+         * Bloqueamos la orden mientras se actualiza para evitar
+         * cambios simultáneos desde el panel administrativo.
+         */
         Order order =
                 orderRepository
-                        .findById(
+                        .findByIdForUpdate(
                                 id
                         )
                         .orElseThrow(
@@ -186,6 +190,29 @@ public class OrderService {
                                                         + id
                                         )
                         );
+
+        OrderStatus currentStatus =
+                order.getStatus();
+
+        if (currentStatus == null) {
+            throw new IllegalStateException(
+                    "La orden #"
+                            + id
+                            + " no tiene un estado válido."
+            );
+        }
+
+        if (currentStatus == newStatus) {
+            return convertToDTO(
+                    order
+            );
+        }
+
+        validateManualStatusTransition(
+                order,
+                currentStatus,
+                newStatus
+        );
 
         order.setStatus(
                 newStatus
@@ -197,14 +224,109 @@ public class OrderService {
                 );
 
         log.info(
-                "Estado de la orden #{} actualizado a {}.",
+                "Estado de la orden #{} actualizado manualmente de {} a {}.",
                 id,
+                currentStatus,
                 newStatus
         );
 
         return convertToDTO(
                 updatedOrder
         );
+    }
+
+    private void validateManualStatusTransition(
+            Order order,
+            OrderStatus currentStatus,
+            OrderStatus newStatus
+    ) {
+        boolean validTransition =
+                switch (currentStatus) {
+                    /*
+                     * PAGADO debe llegar exclusivamente desde
+                     * confirmPayment(), después de verificar el
+                     * pago real con Mercado Pago.
+                     *
+                     * Desde el panel solo se permite cancelar una
+                     * orden pendiente sin pago asociado.
+                     */
+                    case PENDIENTE ->
+                            newStatus ==
+                                    OrderStatus.CANCELADO;
+
+                    case PAGADO ->
+                            newStatus ==
+                                    OrderStatus.PREPARANDO;
+
+                    case PREPARANDO ->
+                            newStatus ==
+                                    OrderStatus.ENVIADO;
+
+                    case ENVIADO ->
+                            newStatus ==
+                                    OrderStatus.ENTREGADO;
+
+                    case ENTREGADO,
+                         CANCELADO ->
+                            false;
+                };
+
+        if (!validTransition) {
+            throw new IllegalStateException(
+                    buildInvalidTransitionMessage(
+                            currentStatus,
+                            newStatus
+                    )
+            );
+        }
+
+        if (
+                currentStatus ==
+                        OrderStatus.PENDIENTE &&
+                        newStatus ==
+                                OrderStatus.CANCELADO &&
+                        order.getPaymentId() != null &&
+                        !order.getPaymentId()
+                                .isBlank()
+        ) {
+            throw new IllegalStateException(
+                    "La orden ya posee un pago asociado y no puede cancelarse."
+            );
+        }
+    }
+
+    private String buildInvalidTransitionMessage(
+            OrderStatus currentStatus,
+            OrderStatus newStatus
+    ) {
+        if (
+                currentStatus ==
+                        OrderStatus.PENDIENTE &&
+                        newStatus ==
+                                OrderStatus.PAGADO
+        ) {
+            return "El estado PAGADO solo puede establecerse mediante la confirmación real del proveedor de pagos.";
+        }
+
+        if (
+                currentStatus ==
+                        OrderStatus.ENTREGADO
+        ) {
+            return "Una orden entregada ya se encuentra finalizada y no puede modificarse.";
+        }
+
+        if (
+                currentStatus ==
+                        OrderStatus.CANCELADO
+        ) {
+            return "Una orden cancelada no puede volver a activarse.";
+        }
+
+        return "La transición de "
+                + currentStatus
+                + " a "
+                + newStatus
+                + " no está permitida.";
     }
 
     // =========================================================

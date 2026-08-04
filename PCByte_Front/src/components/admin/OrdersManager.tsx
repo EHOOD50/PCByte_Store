@@ -55,62 +55,61 @@ interface OrderUser {
 interface Order {
   id: number;
 
-  paymentId?: string | number | null;
+  paymentId?:
+    | string
+    | number
+    | null;
 
   userId?: number | null;
 
   customerEmail?: string;
-
   email?: string;
-
   fullName?: string;
-
   phone?: string;
 
   street?: string;
-
   number?: string;
-
   apartment?: string;
-
   city?: string;
-
   region?: string;
-
   extraInfo?: string;
 
   subtotal?: number;
-
   shippingCost?: number;
-
   total?: number;
 
-  shippingRateId?: number | null;
+  shippingRateId?:
+    | number
+    | null;
 
-  shippingType?: string | null;
+  shippingType?:
+    | string
+    | null;
 
-  shippingLabel?: string | null;
+  shippingLabel?:
+    | string
+    | null;
 
-  shippingCarrier?: string | null;
+  shippingCarrier?:
+    | string
+    | null;
 
   shippingFree?: boolean;
 
-  estimatedMinDays?: number | null;
+  estimatedMinDays?:
+    | number
+    | null;
 
-  estimatedMaxDays?: number | null;
+  estimatedMaxDays?:
+    | number
+    | null;
 
   status?: string | null;
-
   createdAt?: string;
 
   user?: OrderUser | null;
 
-  /*
-   * La entidad Order utiliza orderItems.
-   * OrderResponseDTO utiliza items.
-   */
   orderItems?: OrderItem[];
-
   items?: OrderItem[];
 }
 
@@ -139,7 +138,10 @@ const ORDER_STATUSES: OrderStatus[] = [
 ];
 
 const formatCurrency = (
-  value: number | null | undefined
+  value:
+    | number
+    | null
+    | undefined
 ) => {
   return new Intl.NumberFormat(
     "es-CL",
@@ -236,9 +238,7 @@ const toDrawerData = (
   order: Order
 ): OrderDrawerData => {
   const normalizedItems =
-    getOrderItems(
-      order
-    );
+    getOrderItems(order);
 
   return {
     id: order.id,
@@ -357,12 +357,18 @@ const toDrawerData = (
 };
 
 interface OrdersManagerProps {
-  selectedOrderId?: number | null;
-  onOrderSelectionHandled?: () => void;
+  selectedOrderId?:
+    | number
+    | null;
+
+  onOrderSelectionHandled?:
+    () => void;
 }
 
 const OrdersManager = ({
-  selectedOrderId: externalSelectedOrderId,
+  selectedOrderId:
+    externalSelectedOrderId,
+
   onOrderSelectionHandled,
 }: OrdersManagerProps) => {
   const [
@@ -383,16 +389,18 @@ const OrdersManager = ({
   const [
     updatingOrderId,
     setUpdatingOrderId,
-  ] = useState<number | null>(
-    null
-  );
+  ] =
+    useState<number | null>(
+      null
+    );
 
   const [
     selectedOrderId,
     setSelectedOrderId,
-  ] = useState<number | null>(
-    null
-  );
+  ] =
+    useState<number | null>(
+      null
+    );
 
   const [
     searchTerm,
@@ -402,9 +410,10 @@ const OrdersManager = ({
   const [
     filterStatus,
     setFilterStatus,
-  ] = useState<StatusFilter>(
-    "ALL"
-  );
+  ] =
+    useState<StatusFilter>(
+      "ALL"
+    );
 
   const [
     currentPage,
@@ -494,93 +503,95 @@ const OrdersManager = ({
   };
 
   useEffect(() => {
-  void fetchOrders();
-}, []);
+    void fetchOrders();
+  }, []);
 
-useEffect(() => {
-  setCurrentPage(1);
-}, [
-  searchTerm,
-  filterStatus,
-]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    filterStatus,
+  ]);
 
-useEffect(() => {
-  if (
-    externalSelectedOrderId == null ||
-    orders.length === 0
-  ) {
-    return;
-  }
-
-  const orderExists =
-    orders.some(
-      (order) =>
-        order.id ===
-        externalSelectedOrderId
-    );
-
-  if (!orderExists) {
-    showNotification(
-      "error",
-      `No se encontró el pedido #${externalSelectedOrderId}.`
-    );
-
-    onOrderSelectionHandled?.();
-    return;
-  }
-
-  setSelectedOrderId(
-    externalSelectedOrderId
-  );
-}, [
-  externalSelectedOrderId,
-  orders,
-  onOrderSelectionHandled,
-]);
-
-useEffect(() => {
-  if (!selectedOrder) {
-    return;
-  }
-
-  const previousOverflow =
-    document.body.style.overflow;
-
-  document.body.style.overflow =
-    "hidden";
-
-  const handleKeyDown = (
-    event: KeyboardEvent
-  ) => {
+  useEffect(() => {
     if (
-      event.key === "Escape"
+      externalSelectedOrderId ==
+        null ||
+      orders.length === 0
     ) {
-      setSelectedOrderId(
-        null
+      return;
+    }
+
+    const orderExists =
+      orders.some(
+        (order) =>
+          order.id ===
+          externalSelectedOrderId
+      );
+
+    if (!orderExists) {
+      showNotification(
+        "error",
+        `No se encontró el pedido #${externalSelectedOrderId}.`
       );
 
       onOrderSelectionHandled?.();
+      return;
     }
-  };
 
-  window.addEventListener(
-    "keydown",
-    handleKeyDown
-  );
+    setSelectedOrderId(
+      externalSelectedOrderId
+    );
+  }, [
+    externalSelectedOrderId,
+    orders,
+    onOrderSelectionHandled,
+  ]);
 
-  return () => {
+  useEffect(() => {
+    if (!selectedOrder) {
+      return;
+    }
+
+    const previousOverflow =
+      document.body.style
+        .overflow;
+
     document.body.style.overflow =
-      previousOverflow;
+      "hidden";
 
-    window.removeEventListener(
+    const handleKeyDown = (
+      event: KeyboardEvent
+    ) => {
+      if (
+        event.key === "Escape"
+      ) {
+        setSelectedOrderId(
+          null
+        );
+
+        onOrderSelectionHandled?.();
+      }
+    };
+
+    window.addEventListener(
       "keydown",
       handleKeyDown
     );
-  };
-}, [
-  selectedOrder,
-  onOrderSelectionHandled,
-]);
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+    };
+  }, [
+    selectedOrder,
+    onOrderSelectionHandled,
+  ]);
 
   const filteredOrders =
     useMemo(
@@ -709,13 +720,14 @@ useEffect(() => {
     );
   };
 
-  const closeOrderDetails = () => {
+  const closeOrderDetails =
+    () => {
+      setSelectedOrderId(
+        null
+      );
 
-  setSelectedOrderId(
-    null
-  );
-  onOrderSelectionHandled?.();
-  };
+      onOrderSelectionHandled?.();
+    };
 
   const updateOrderStatus =
     async (
@@ -735,7 +747,9 @@ useEffect(() => {
         );
 
         setOrders(
-          (currentOrdersState) =>
+          (
+            currentOrdersState
+          ) =>
             currentOrdersState.map(
               (order) =>
                 order.id ===
@@ -990,34 +1004,34 @@ useEffect(() => {
           ) : (
             <>
               <div className="hidden overflow-x-auto lg:block">
-                <table className="w-full min-w-[1160px]">
+                <table className="w-full min-w-[1080px]">
                   <thead className="bg-slate-50">
                     <tr className="text-left text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
-                      <th className="px-5 py-4">
+                      <th className="px-4 py-3.5">
                         Pedido
                       </th>
 
-                      <th className="px-5 py-4">
+                      <th className="px-4 py-3.5">
                         Cliente
                       </th>
 
-                      <th className="px-5 py-4">
+                      <th className="px-4 py-3.5">
                         Destino
                       </th>
 
-                      <th className="px-5 py-4">
+                      <th className="px-4 py-3.5">
                         Estado
                       </th>
 
-                      <th className="px-5 py-4 text-right">
+                      <th className="px-4 py-3.5 text-right">
                         Total
                       </th>
 
-                      <th className="px-5 py-4">
-                        Actualizar
+                      <th className="px-4 py-3.5">
+                        Acción
                       </th>
 
-                      <th className="px-5 py-4 text-right">
+                      <th className="px-4 py-3.5 text-right">
                         Detalle
                       </th>
                     </tr>
@@ -1066,48 +1080,48 @@ useEffect(() => {
                             }}
                             className="cursor-pointer transition hover:bg-[#0066FF]/[0.035] focus:bg-[#0066FF]/[0.05] focus:outline-none"
                           >
-                            <td className="px-5 py-5 align-top">
-                              <p className="text-lg font-black text-[#0066FF]">
+                            <td className="px-4 py-3 align-middle">
+                              <p className="text-base font-black text-[#0066FF]">
                                 #
                                 {
                                   order.id
                                 }
                               </p>
 
-                              <p className="mt-1 text-[10px] font-bold text-slate-400">
+                              <p className="mt-0.5 whitespace-nowrap text-[9px] font-bold text-slate-400">
                                 {formatDate(
                                   order.createdAt
                                 )}
                               </p>
 
-                              <p className="mt-1 max-w-[150px] truncate text-[9px] font-bold uppercase text-slate-400">
+                              <p className="mt-0.5 max-w-[145px] truncate text-[8px] font-bold uppercase text-slate-400">
                                 Pago:{" "}
                                 {order.paymentId ??
                                   "Sin ID"}
                               </p>
                             </td>
 
-                            <td className="px-5 py-5 align-top">
-                              <div className="flex items-start gap-3">
-                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0066FF]/10 text-[#0066FF]">
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0066FF]/10 text-[#0066FF]">
                                   <UserRound
-                                    size={16}
+                                    size={14}
                                   />
                                 </div>
 
                                 <div className="min-w-0">
-                                  <p className="max-w-[220px] truncate text-sm font-black text-slate-900">
+                                  <p className="max-w-[210px] truncate text-[13px] font-black text-slate-900">
                                     {order.fullName ??
                                       "Sin nombre"}
                                   </p>
 
-                                  <p className="mt-1 max-w-[220px] truncate text-xs text-slate-500">
+                                  <p className="mt-0.5 max-w-[210px] truncate text-[10px] text-slate-500">
                                     {getCustomerEmail(
                                       order
                                     )}
                                   </p>
 
-                                  <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2 py-1 text-[8px] font-black uppercase text-slate-500">
+                                  <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[7px] font-black uppercase text-slate-500">
                                     {order.userId ||
                                     order.user?.id
                                       ? "Registrado"
@@ -1117,22 +1131,22 @@ useEffect(() => {
                               </div>
                             </td>
 
-                            <td className="px-5 py-5 align-top">
-                              <div className="flex max-w-[260px] items-start gap-2">
+                            <td className="px-4 py-3 align-middle">
+                              <div className="flex max-w-[235px] items-start gap-2">
                                 <MapPin
-                                  size={15}
+                                  size={14}
                                   className="mt-0.5 shrink-0 text-slate-400"
                                 />
 
-                                <div>
-                                  <p className="text-xs font-bold leading-5 text-slate-700">
+                                <div className="min-w-0">
+                                  <p className="line-clamp-2 text-[11px] font-bold leading-4 text-slate-700">
                                     {order.street ??
                                       "Dirección no disponible"}{" "}
                                     {order.number ??
                                       ""}
                                   </p>
 
-                                  <p className="mt-1 text-[10px] font-bold uppercase text-[#0066FF]">
+                                  <p className="mt-0.5 truncate text-[8px] font-bold uppercase text-[#0066FF]">
                                     {order.city ??
                                       "Sin ciudad"}
 
@@ -1144,14 +1158,14 @@ useEffect(() => {
                               </div>
                             </td>
 
-                            <td className="px-5 py-5 align-top">
+                            <td className="px-4 py-3 align-middle">
                               <OrderStatusBadge
                                 status={
                                   status
                                 }
                               />
 
-                              <p className="mt-3 text-[10px] text-slate-500">
+                              <p className="mt-1.5 text-[9px] text-slate-500">
                                 {
                                   orderItems.length
                                 }{" "}
@@ -1162,8 +1176,8 @@ useEffect(() => {
                               </p>
                             </td>
 
-                            <td className="px-5 py-5 text-right align-top">
-                              <p className="text-base font-black text-slate-900">
+                            <td className="px-4 py-3 text-right align-middle">
+                              <p className="whitespace-nowrap text-sm font-black text-slate-900">
                                 {formatCurrency(
                                   order.total
                                 )}
@@ -1171,7 +1185,7 @@ useEffect(() => {
                             </td>
 
                             <td
-                              className="w-[190px] px-5 py-5 align-top"
+                              className="w-[130px] px-4 py-3 align-middle"
                               onClick={(
                                 event
                               ) =>
@@ -1202,9 +1216,10 @@ useEffect(() => {
                               />
                             </td>
 
-                            <td className="px-5 py-5 text-right align-top">
+                            <td className="px-4 py-3 text-right align-middle">
                               <button
                                 type="button"
+                                title="Ver detalle del pedido"
                                 onClick={(
                                   event
                                 ) => {
@@ -1214,10 +1229,10 @@ useEffect(() => {
                                     order.id
                                   );
                                 }}
-                                className="inline-flex items-center gap-2 rounded-xl border border-[#0066FF]/20 bg-[#0066FF]/5 px-3 py-2 text-[9px] font-black uppercase tracking-wider text-[#0066FF] transition hover:bg-[#0066FF] hover:text-white"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#0066FF]/20 bg-[#0066FF]/5 px-2.5 py-1.5 text-[8px] font-black uppercase tracking-wider text-[#0066FF] transition hover:bg-[#0066FF] hover:text-white"
                               >
                                 <Eye
-                                  size={14}
+                                  size={13}
                                 />
 
                                 Ver
@@ -1474,7 +1489,7 @@ useEffect(() => {
             />
 
             <p className="text-xs leading-5 text-slate-600">
-              Selecciona una fila o pulsa “Ver detalle” para abrir el Drawer (panel lateral deslizante) del pedido.
+              Selecciona una fila o pulsa “Ver” para abrir el detalle completo del pedido.
             </p>
           </div>
         </section>

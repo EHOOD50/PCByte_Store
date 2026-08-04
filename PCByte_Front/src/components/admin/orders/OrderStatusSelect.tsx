@@ -1,10 +1,15 @@
-import {
-  ChevronDown,
-} from "lucide-react";
-
 import type {
-  ChangeEvent,
+  ReactNode,
 } from "react";
+
+import {
+  Ban,
+  CheckCircle2,
+  LoaderCircle,
+  PackageCheck,
+  Send,
+  XCircle,
+} from "lucide-react";
 
 import type {
   OrderStatus,
@@ -12,74 +17,99 @@ import type {
 
 interface OrderStatusSelectProps {
   value?: string | null;
+
   onChange: (
     status: OrderStatus
   ) => void;
+
   disabled?: boolean;
 }
 
-interface StatusOption {
-  value: OrderStatus;
+interface StatusAction {
+  nextStatus: OrderStatus;
   label: string;
+  helperText: string;
+  className: string;
+  icon: ReactNode;
 }
 
-const statusOptions: StatusOption[] = [
-  {
-    value: "PENDIENTE",
-    label: "Pendiente",
-  },
-  {
-    value: "PAGADO",
-    label: "Pagado",
-  },
-  {
-    value: "PREPARANDO",
-    label: "Preparando",
-  },
-  {
-    value: "ENVIADO",
-    label: "Enviado",
-  },
-  {
-    value: "ENTREGADO",
-    label: "Entregado",
-  },
-  {
-    value: "CANCELADO",
-    label: "Cancelado",
-  },
+const ORDER_STATUSES: OrderStatus[] = [
+  "PENDIENTE",
+  "PAGADO",
+  "PREPARANDO",
+  "ENVIADO",
+  "ENTREGADO",
+  "CANCELADO",
 ];
-
-const statusClasses: Record<
-  OrderStatus,
-  string
-> = {
-  PENDIENTE:
-    "border-amber-200 bg-amber-50 text-amber-700",
-
-  PAGADO:
-    "border-blue-200 bg-blue-50 text-blue-700",
-
-  PREPARANDO:
-    "border-violet-200 bg-violet-50 text-violet-700",
-
-  ENVIADO:
-    "border-cyan-200 bg-cyan-50 text-cyan-700",
-
-  ENTREGADO:
-    "border-[#97cf00]/30 bg-[#97cf00]/10 text-[#5f8200]",
-
-  CANCELADO:
-    "border-red-200 bg-red-50 text-red-700",
-};
 
 const isOrderStatus = (
   value: string
 ): value is OrderStatus => {
-  return statusOptions.some(
-    (option) =>
-      option.value === value
+  return ORDER_STATUSES.includes(
+    value as OrderStatus
   );
+};
+
+const getStatusAction = (
+  status: OrderStatus
+): StatusAction | null => {
+  switch (status) {
+    case "PENDIENTE":
+      return {
+        nextStatus: "CANCELADO",
+        label: "Cancelar",
+        helperText:
+          "Cancelar pedido pendiente",
+        className:
+          "border-red-200 bg-red-50 text-red-700 hover:bg-red-600 hover:text-white",
+        icon: <Ban size={14} />,
+      };
+
+    case "PAGADO":
+      return {
+        nextStatus: "PREPARANDO",
+        label: "Preparar",
+        helperText:
+          "Marcar como preparando",
+        className:
+          "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-600 hover:text-white",
+        icon: (
+          <PackageCheck
+            size={14}
+          />
+        ),
+      };
+
+    case "PREPARANDO":
+      return {
+        nextStatus: "ENVIADO",
+        label: "Enviar",
+        helperText:
+          "Marcar como enviado",
+        className:
+          "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white",
+        icon: <Send size={14} />,
+      };
+
+    case "ENVIADO":
+      return {
+        nextStatus: "ENTREGADO",
+        label: "Entregar",
+        helperText:
+          "Marcar como entregado",
+        className:
+          "border-[#97cf00]/30 bg-[#97cf00]/10 text-[#5f8200] hover:bg-[#97cf00] hover:text-[#08101d]",
+        icon: (
+          <CheckCircle2
+            size={14}
+          />
+        ),
+      };
+
+    case "ENTREGADO":
+    case "CANCELADO":
+      return null;
+  }
 };
 
 const OrderStatusSelect = ({
@@ -98,48 +128,72 @@ const OrderStatusSelect = ({
       ? normalizedValue
       : "PENDIENTE";
 
-  const handleChange = (
-    event: ChangeEvent<HTMLSelectElement>
-  ) => {
-    const nextStatus =
-      event.target.value;
+  const action =
+    getStatusAction(
+      currentStatus
+    );
 
-    if (
-      isOrderStatus(
-        nextStatus
-      )
-    ) {
-      onChange(
-        nextStatus
-      );
-    }
-  };
+  if (!action) {
+    const isDelivered =
+      currentStatus ===
+      "ENTREGADO";
+
+    return (
+      <div
+        className={`inline-flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 ${
+          isDelivered
+            ? "border-[#97cf00]/30 bg-[#97cf00]/10 text-[#5f8200]"
+            : "border-red-200 bg-red-50 text-red-700"
+        }`}
+      >
+        {isDelivered ? (
+          <CheckCircle2
+            size={14}
+            className="shrink-0"
+          />
+        ) : (
+          <XCircle
+            size={14}
+            className="shrink-0"
+          />
+        )}
+
+        <p className="truncate text-[8px] font-black uppercase tracking-wider">
+          {isDelivered
+            ? "Finalizado"
+            : "Cancelado"}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative">
-      <select
-        value={currentStatus}
-        onChange={handleChange}
-        disabled={disabled}
-        className={`w-full cursor-pointer appearance-none rounded-xl border px-4 py-3 pr-10 text-[10px] font-black uppercase tracking-wider outline-none transition focus:ring-2 focus:ring-[#0066FF]/25 disabled:cursor-not-allowed disabled:opacity-60 ${statusClasses[currentStatus]}`}
-      >
-        {statusOptions.map(
-          (option) => (
-            <option
-              key={option.value}
-              value={option.value}
-            >
-              {option.label}
-            </option>
-          )
-        )}
-      </select>
+    <button
+      type="button"
+      disabled={disabled}
+      title={
+        action.helperText
+      }
+      onClick={() =>
+        onChange(
+          action.nextStatus
+        )
+      }
+      className={`inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-2 text-[8px] font-black uppercase tracking-wider transition disabled:cursor-not-allowed disabled:opacity-60 ${action.className}`}
+    >
+      {disabled ? (
+        <LoaderCircle
+          size={14}
+          className="animate-spin"
+        />
+      ) : (
+        action.icon
+      )}
 
-      <ChevronDown
-        size={15}
-        className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 opacity-60"
-      />
-    </div>
+      {disabled
+        ? "Actualizando"
+        : action.label}
+    </button>
   );
 };
 
