@@ -356,7 +356,15 @@ const toDrawerData = (
   };
 };
 
-const OrdersManager = () => {
+interface OrdersManagerProps {
+  selectedOrderId?: number | null;
+  onOrderSelectionHandled?: () => void;
+}
+
+const OrdersManager = ({
+  selectedOrderId: externalSelectedOrderId,
+  onOrderSelectionHandled,
+}: OrdersManagerProps) => {
   const [
     orders,
     setOrders,
@@ -486,55 +494,93 @@ const OrdersManager = () => {
   };
 
   useEffect(() => {
-    void fetchOrders();
-  }, []);
+  void fetchOrders();
+}, []);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    searchTerm,
-    filterStatus,
-  ]);
+useEffect(() => {
+  setCurrentPage(1);
+}, [
+  searchTerm,
+  filterStatus,
+]);
 
-  useEffect(() => {
-    if (!selectedOrder) {
-      return;
+useEffect(() => {
+  if (
+    externalSelectedOrderId == null ||
+    orders.length === 0
+  ) {
+    return;
+  }
+
+  const orderExists =
+    orders.some(
+      (order) =>
+        order.id ===
+        externalSelectedOrderId
+    );
+
+  if (!orderExists) {
+    showNotification(
+      "error",
+      `No se encontró el pedido #${externalSelectedOrderId}.`
+    );
+
+    onOrderSelectionHandled?.();
+    return;
+  }
+
+  setSelectedOrderId(
+    externalSelectedOrderId
+  );
+}, [
+  externalSelectedOrderId,
+  orders,
+  onOrderSelectionHandled,
+]);
+
+useEffect(() => {
+  if (!selectedOrder) {
+    return;
+  }
+
+  const previousOverflow =
+    document.body.style.overflow;
+
+  document.body.style.overflow =
+    "hidden";
+
+  const handleKeyDown = (
+    event: KeyboardEvent
+  ) => {
+    if (
+      event.key === "Escape"
+    ) {
+      setSelectedOrderId(
+        null
+      );
+
+      onOrderSelectionHandled?.();
     }
+  };
 
-    const previousOverflow =
-      document.body.style
-        .overflow;
+  window.addEventListener(
+    "keydown",
+    handleKeyDown
+  );
 
+  return () => {
     document.body.style.overflow =
-      "hidden";
+      previousOverflow;
 
-    const handleKeyDown = (
-      event: KeyboardEvent
-    ) => {
-      if (
-        event.key === "Escape"
-      ) {
-        setSelectedOrderId(
-          null
-        );
-      }
-    };
-
-    window.addEventListener(
+    window.removeEventListener(
       "keydown",
       handleKeyDown
     );
-
-    return () => {
-      document.body.style.overflow =
-        previousOverflow;
-
-      window.removeEventListener(
-        "keydown",
-        handleKeyDown
-      );
-    };
-  }, [selectedOrder]);
+  };
+}, [
+  selectedOrder,
+  onOrderSelectionHandled,
+]);
 
   const filteredOrders =
     useMemo(
@@ -664,9 +710,11 @@ const OrdersManager = () => {
   };
 
   const closeOrderDetails = () => {
-    setSelectedOrderId(
-      null
-    );
+
+  setSelectedOrderId(
+    null
+  );
+  onOrderSelectionHandled?.();
   };
 
   const updateOrderStatus =

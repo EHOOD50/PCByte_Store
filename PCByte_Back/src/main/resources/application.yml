@@ -62,6 +62,9 @@ app:
     guest-account-conversion-expiration-hours: 1
     password-reset-expiration-minutes: 30
 
+  health:
+    simulate-database-down: false
+
   mail:
     from-address: no-reply@pcbyte.cl
     from-name: PCByte Store

@@ -4,7 +4,7 @@ import com.asthood.techstore.model.Order;
 import com.asthood.techstore.model.OrderItem;
 import com.asthood.techstore.model.OrderStatus;
 import com.asthood.techstore.repository.OrderRepository;
-import com.mercadopago.MercadoPagoConfig;
+// import com.mercadopago.MercadoPagoConfig;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
@@ -34,8 +34,8 @@ public class PaymentService {
     private final OrderService orderService;
     private final OrderRepository orderRepository;
 
-    @Value("${mercadopago.access.token}")
-    private String accessToken;
+    //@Value("${mercadopago.access.token}")
+   // private String accessToken;
 
     @Value("${app.base-url}")
     private String backendUrl;
@@ -70,7 +70,7 @@ public class PaymentService {
 
             validateOrderForPayment(order);
 
-            MercadoPagoConfig.setAccessToken(accessToken);
+            //MercadoPagoConfig.setAccessToken(accessToken);
 
             List<PreferenceItemRequest> mercadoPagoItems =
                     buildPreferenceItems(order);
@@ -526,9 +526,9 @@ public class PaymentService {
         }
 
         try {
-            MercadoPagoConfig.setAccessToken(
-                    accessToken
-            );
+           // MercadoPagoConfig.setAccessToken(
+            //        accessToken
+           // );
 
             PaymentClient paymentClient =
                     new PaymentClient();

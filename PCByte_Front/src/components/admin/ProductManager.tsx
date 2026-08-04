@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
 import axios from "axios";
 import toast from "react-hot-toast";
 
@@ -12,30 +16,69 @@ import ProductModal, {
 import ConfirmDeleteModal from "./product/ConfirmDeleteModal";
 
 import type {
-  Product,
-  Category,
+  QuickActionId,
+} from "./home/QuickActionsCard";
+
+import type {
   Brand,
+  Category,
+  Product,
 } from "../../types/types";
 
 interface ProductManagerProps {
   onManageCategories: () => void;
+
+  pendingQuickAction:
+    | QuickActionId
+    | null;
+
+  onQuickActionHandled: () => void;
 }
 
-const ProductManager: React.FC<ProductManagerProps> = ({
+const ProductManager: React.FC<
+  ProductManagerProps
+> = ({
   onManageCategories,
+  pendingQuickAction,
+  onQuickActionHandled,
 }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [
+    products,
+    setProducts,
+  ] = useState<Product[]>([]);
 
-  const [showProductModal, setShowProductModal] =
-    useState(false);
+  const [
+    categories,
+    setCategories,
+  ] = useState<Category[]>([]);
 
-  const [productToDelete, setProductToDelete] =
-    useState<Product | null>(null);
+  const [
+    brands,
+    setBrands,
+  ] = useState<Brand[]>([]);
 
-  const [formData, setFormData] =
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    showProductModal,
+    setShowProductModal,
+  ] = useState(false);
+
+  const [
+    productToDelete,
+    setProductToDelete,
+  ] =
+    useState<Product | null>(
+      null
+    );
+
+  const [
+    formData,
+    setFormData,
+  ] =
     useState<ProductFormData>({
       id: null,
       internalCode: "",
@@ -53,100 +96,169 @@ const ProductManager: React.FC<ProductManagerProps> = ({
       imageUrl: "",
     });
 
-  const fetchInventoryData = async () => {
-    setLoading(true);
+  const fetchInventoryData =
+    async () => {
+      setLoading(true);
 
-    try {
-      const [
-        productsResponse,
-        categoriesResponse,
-        brandsResponse,
-      ] = await Promise.all([
-        adminApi.get("/products?size=100"),
-        adminApi.get("/categories"),
-        adminApi.get("/brands"),
-      ]);
+      try {
+        const [
+          productsResponse,
+          categoriesResponse,
+          brandsResponse,
+        ] = await Promise.all([
+          adminApi.get(
+            "/products?size=100"
+          ),
 
-      const productsContent =
-        productsResponse.data?._embedded?.products ??
-        productsResponse.data?.content ??
-        productsResponse.data ??
-        [];
+          adminApi.get(
+            "/categories"
+          ),
 
-      const categoriesContent =
-        categoriesResponse.data?._embedded?.categories ??
-        categoriesResponse.data?.content ??
-        categoriesResponse.data ??
-        [];
+          adminApi.get(
+            "/brands"
+          ),
+        ]);
 
-      const brandsContent =
-        brandsResponse.data?._embedded?.brands ??
-        brandsResponse.data?.content ??
-        brandsResponse.data ??
-        [];
+        const productsContent =
+          productsResponse.data
+            ?._embedded
+            ?.products ??
+          productsResponse.data
+            ?.content ??
+          productsResponse.data ??
+          [];
 
-      const cleanProducts: Product[] =
-        Array.isArray(productsContent)
-          ? productsContent
-          : [];
+        const categoriesContent =
+          categoriesResponse.data
+            ?._embedded
+            ?.categories ??
+          categoriesResponse.data
+            ?.content ??
+          categoriesResponse.data ??
+          [];
 
-      const cleanCategories: Category[] =
-        Array.isArray(categoriesContent)
-          ? categoriesContent
-          : [];
+        const brandsContent =
+          brandsResponse.data
+            ?._embedded
+            ?.brands ??
+          brandsResponse.data
+            ?.content ??
+          brandsResponse.data ??
+          [];
 
-      const cleanBrands: Brand[] =
-        Array.isArray(brandsContent)
-          ? brandsContent
-          : [];
+        const cleanProducts:
+          Product[] =
+            Array.isArray(
+              productsContent
+            )
+              ? productsContent
+              : [];
 
-      setProducts(cleanProducts);
-      setCategories(cleanCategories);
-      setBrands(cleanBrands);
+        const cleanCategories:
+          Category[] =
+            Array.isArray(
+              categoriesContent
+            )
+              ? categoriesContent
+              : [];
 
-      setFormData((previous) => ({
-        ...previous,
-        categoryId:
-          previous.categoryId ||
-          cleanCategories[0]?.id ||
-          0,
-        brandId:
-          previous.brandId ??
-          cleanBrands[0]?.id ??
-          null,
-      }));
-    } catch (error) {
-      console.error(
-        "Error al cargar el inventario:",
-        error
-      );
+        const cleanBrands:
+          Brand[] =
+            Array.isArray(
+              brandsContent
+            )
+              ? brandsContent
+              : [];
 
-      toast.error(
-        "No se pudo cargar el inventario."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        setProducts(
+          cleanProducts
+        );
+
+        setCategories(
+          cleanCategories
+        );
+
+        setBrands(
+          cleanBrands
+        );
+
+        setFormData(
+          (previous) => ({
+            ...previous,
+
+            categoryId:
+              previous.categoryId ||
+              cleanCategories[0]
+                ?.id ||
+              0,
+
+            brandId:
+              previous.brandId ??
+              cleanBrands[0]?.id ??
+              null,
+          })
+        );
+      } catch (error) {
+        console.error(
+          "Error al cargar el inventario:",
+          error
+        );
+
+        toast.error(
+          "No se pudo cargar el inventario."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   useEffect(() => {
     void fetchInventoryData();
   }, []);
 
-  const editProduct = (product: Product) => {
+  const editProduct = (
+    product: Product
+  ) => {
     setFormData({
       id: product.id,
-      internalCode: product.internalCode ?? "",
-      sku: product.sku ?? "",
-      mpn: product.mpn ?? "",
+
+      internalCode:
+        product.internalCode ??
+        "",
+
+      sku:
+        product.sku ?? "",
+
+      mpn:
+        product.mpn ?? "",
+
       name: product.name,
-      description: product.description ?? "",
+
+      description:
+        product.description ??
+        "",
+
       specifications:
-        product.specifications ?? "",
-      warranty: product.warranty ?? "",
-      price: Number(product.price),
-      stock: Number(product.stock),
-      active: product.active ?? true,
+        product.specifications ??
+        "",
+
+      warranty:
+        product.warranty ??
+        "",
+
+      price:
+        Number(
+          product.price
+        ),
+
+      stock:
+        Number(
+          product.stock
+        ),
+
+      active:
+        product.active ??
+        true,
 
       categoryId:
         product.categoryId ??
@@ -158,185 +270,291 @@ const ProductManager: React.FC<ProductManagerProps> = ({
         product.brand?.id ??
         null,
 
-      imageUrl: product.imageUrl ?? "",
+      imageUrl:
+        product.imageUrl ??
+        "",
     });
 
-    setShowProductModal(true);
+    setShowProductModal(
+      true
+    );
   };
 
-  const openNewProductModal = () => {
-    setFormData({
-      id: null,
-      internalCode: "",
-      sku: "",
-      mpn: "",
-      name: "",
-      description: "",
-      specifications: "",
-      warranty: "",
-      price: 0,
-      stock: 0,
-      active: true,
-      categoryId:
-        categories[0]?.id ?? 0,
-      brandId:
-        brands[0]?.id ?? null,
-      imageUrl: "",
-    });
+  const openNewProductModal =
+    () => {
+      setFormData({
+        id: null,
+        internalCode: "",
+        sku: "",
+        mpn: "",
+        name: "",
+        description: "",
+        specifications: "",
+        warranty: "",
+        price: 0,
+        stock: 0,
+        active: true,
 
-    setShowProductModal(true);
-  };
+        categoryId:
+          categories[0]?.id ??
+          0,
 
-  const closeProductModal = () => {
-    setShowProductModal(false);
-  };
+        brandId:
+          brands[0]?.id ??
+          null,
 
-  const saveProduct = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
+        imageUrl: "",
+      });
 
-    if (formData.categoryId === 0) {
-      toast.error(
-        "Debes seleccionar una categoría."
+      setShowProductModal(
+        true
       );
+    };
+
+  useEffect(() => {
+    if (
+      loading ||
+      pendingQuickAction !==
+        "new-product"
+    ) {
       return;
     }
 
-    const productPayload = {
-      sku: formData.sku.trim() || null,
-      mpn: formData.mpn.trim() || null,
+    openNewProductModal();
+    onQuickActionHandled();
+  }, [
+    loading,
+    pendingQuickAction,
+    onQuickActionHandled,
+  ]);
 
-      name: formData.name.trim(),
-
-      description:
-        formData.description.trim() || null,
-
-      specifications:
-        formData.specifications.trim() || null,
-
-      warranty:
-        formData.warranty.trim() || null,
-
-      price: Number(formData.price),
-      stock: Number(formData.stock),
-      active: formData.active,
-
-      categoryId: Number(
-        formData.categoryId
-      ),
-
-      brandId:
-        formData.brandId !== null
-          ? Number(formData.brandId)
-          : null,
-
-      imageUrl:
-        formData.imageUrl.trim() || null,
+  const closeProductModal =
+    () => {
+      setShowProductModal(
+        false
+      );
     };
 
-    try {
-      if (formData.id !== null) {
-        await adminApi.put(
-          `/products/${formData.id}`,
-          productPayload
+  const saveProduct =
+    async (
+      event:
+        React.FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
+
+      if (
+        formData.categoryId ===
+        0
+      ) {
+        toast.error(
+          "Debes seleccionar una categoría."
         );
-      } else {
-        await adminApi.post(
-          "/products",
-          productPayload
-        );
+
+        return;
       }
 
-      toast.success(
-        formData.id !== null
-          ? "Producto actualizado correctamente."
-          : "Producto creado correctamente."
-      );
+      const productPayload = {
+        sku:
+          formData.sku.trim() ||
+          null,
 
-      closeProductModal();
-      await fetchInventoryData();
-    } catch (error) {
-      console.error(
-        "Error al guardar el producto:",
-        error
-      );
+        mpn:
+          formData.mpn.trim() ||
+          null,
 
-      if (axios.isAxiosError(error)) {
-        console.error(
-          "Respuesta del backend:",
-          error.response?.data
-        );
-      }
+        name:
+          formData.name.trim(),
 
-      toast.error(
-        formData.id !== null
-          ? "No se pudo actualizar el producto."
-          : "No se pudo crear el producto."
-      );
-    }
-  };
+        description:
+          formData.description
+            .trim() ||
+          null,
 
-  const requestDeleteProduct = (
-    product: Product
-  ) => {
-    setProductToDelete(product);
-  };
+        specifications:
+          formData.specifications
+            .trim() ||
+          null,
 
-  const confirmDeleteProduct = async () => {
-    if (!productToDelete) return;
+        warranty:
+          formData.warranty
+            .trim() ||
+          null,
 
-    try {
-      await adminApi.delete(
-        `/products/${productToDelete.id}`
-      );
+        price:
+          Number(
+            formData.price
+          ),
 
-      toast.success(
-        "Producto eliminado correctamente."
-      );
+        stock:
+          Number(
+            formData.stock
+          ),
 
-      setProductToDelete(null);
-      await fetchInventoryData();
-    } catch (error: unknown) {
-      console.error(
-        "Error al eliminar el producto:",
-        error
-      );
+        active:
+          formData.active,
 
-      if (axios.isAxiosError(error)) {
-        const responseData =
-          error.response?.data;
+        categoryId:
+          Number(
+            formData.categoryId
+          ),
 
-        const backendMessage = String(
-          responseData?.message ??
-            responseData?.error ??
-            responseData ??
-            ""
-        ).toLowerCase();
+        brandId:
+          formData.brandId !==
+          null
+            ? Number(
+                formData.brandId
+              )
+            : null,
 
-        const isRelatedToOrders =
-          backendMessage.includes("order_items") ||
-          backendMessage.includes("llave foránea") ||
-          backendMessage.includes("foreign key") ||
-          backendMessage.includes("constraint");
+        imageUrl:
+          formData.imageUrl
+            .trim() ||
+          null,
+      };
 
-        if (isRelatedToOrders) {
-          toast.error(
-            "Este producto está asociado a uno o más pedidos y no puede eliminarse."
+      try {
+        if (
+          formData.id !==
+          null
+        ) {
+          await adminApi.put(
+            `/products/${formData.id}`,
+            productPayload
           );
-
-          setProductToDelete(null);
-          return;
+        } else {
+          await adminApi.post(
+            "/products",
+            productPayload
+          );
         }
+
+        toast.success(
+          formData.id !==
+          null
+            ? "Producto actualizado correctamente."
+            : "Producto creado correctamente."
+        );
+
+        closeProductModal();
+
+        await fetchInventoryData();
+      } catch (error) {
+        console.error(
+          "Error al guardar el producto:",
+          error
+        );
+
+        if (
+          axios.isAxiosError(
+            error
+          )
+        ) {
+          console.error(
+            "Respuesta del backend:",
+            error.response?.data
+          );
+        }
+
+        toast.error(
+          formData.id !==
+          null
+            ? "No se pudo actualizar el producto."
+            : "No se pudo crear el producto."
+        );
+      }
+    };
+
+  const requestDeleteProduct =
+    (
+      product: Product
+    ) => {
+      setProductToDelete(
+        product
+      );
+    };
+
+  const confirmDeleteProduct =
+    async () => {
+      if (!productToDelete) {
+        return;
       }
 
-      toast.error(
-        "No se pudo eliminar el producto."
-      );
+      try {
+        await adminApi.delete(
+          `/products/${productToDelete.id}`
+        );
 
-      setProductToDelete(null);
-    }
-  };
+        toast.success(
+          "Producto eliminado correctamente."
+        );
+
+        setProductToDelete(
+          null
+        );
+
+        await fetchInventoryData();
+      } catch (
+        error: unknown
+      ) {
+        console.error(
+          "Error al eliminar el producto:",
+          error
+        );
+
+        if (
+          axios.isAxiosError(
+            error
+          )
+        ) {
+          const responseData =
+            error.response?.data;
+
+          const backendMessage =
+            String(
+              responseData?.message ??
+                responseData?.error ??
+                responseData ??
+                ""
+            ).toLowerCase();
+
+          const isRelatedToOrders =
+            backendMessage.includes(
+              "order_items"
+            ) ||
+            backendMessage.includes(
+              "llave foránea"
+            ) ||
+            backendMessage.includes(
+              "foreign key"
+            ) ||
+            backendMessage.includes(
+              "constraint"
+            );
+
+          if (
+            isRelatedToOrders
+          ) {
+            toast.error(
+              "Este producto está asociado a uno o más pedidos y no puede eliminarse."
+            );
+
+            setProductToDelete(
+              null
+            );
+
+            return;
+          }
+        }
+
+        toast.error(
+          "No se pudo eliminar el producto."
+        );
+
+        setProductToDelete(
+          null
+        );
+      }
+    };
 
   if (loading) {
     return (
@@ -351,31 +569,54 @@ const ProductManager: React.FC<ProductManagerProps> = ({
   return (
     <div className="space-y-6">
       <ProductToolbar
-        onNewProduct={openNewProductModal}
+        onNewProduct={
+          openNewProductModal
+        }
         onManageCategories={
           onManageCategories
         }
       />
 
       <ProductTable
-        products={products}
-        onEdit={editProduct}
-        onDelete={requestDeleteProduct}
+        products={
+          products
+        }
+        onEdit={
+          editProduct
+        }
+        onDelete={
+          requestDeleteProduct
+        }
       />
 
       <ProductModal
-        isOpen={showProductModal}
-        formData={formData}
-        categories={categories}
-        brands={brands}
-        onClose={closeProductModal}
-        onChange={setFormData}
-        onSubmit={saveProduct}
+        isOpen={
+          showProductModal
+        }
+        formData={
+          formData
+        }
+        categories={
+          categories
+        }
+        brands={
+          brands
+        }
+        onClose={
+          closeProductModal
+        }
+        onChange={
+          setFormData
+        }
+        onSubmit={
+          saveProduct
+        }
       />
 
       <ConfirmDeleteModal
         isOpen={
-          productToDelete !== null
+          productToDelete !==
+          null
         }
         title="Eliminar producto"
         message={
@@ -384,7 +625,9 @@ const ProductManager: React.FC<ProductManagerProps> = ({
             : ""
         }
         onCancel={() =>
-          setProductToDelete(null)
+          setProductToDelete(
+            null
+          )
         }
         onConfirm={
           confirmDeleteProduct

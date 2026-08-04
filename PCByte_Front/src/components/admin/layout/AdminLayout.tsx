@@ -59,10 +59,11 @@ const AdminLayout = ({
           }}
         >
           <AdminHeader
-            onOpenSidebar={() =>
-              setMobileOpen(true)
-            }
-          />
+  onOpenSidebar={() =>
+    setMobileOpen(true)
+  }
+  onLogout={onLogout}
+/>
 
           <main className="p-8">
             {children}
@@ -71,10 +72,11 @@ const AdminLayout = ({
 
         <div className="lg:hidden">
           <AdminHeader
-            onOpenSidebar={() =>
-              setMobileOpen(true)
-            }
-          />
+  onOpenSidebar={() =>
+    setMobileOpen(true)
+  }
+  onLogout={onLogout}
+/>
 
           <main className="p-5">
             {children}

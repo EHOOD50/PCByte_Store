@@ -28,3 +28,34 @@
     transform: translateY(0);
   }
 }
+
+@keyframes pcbyte-status-breathe {
+  0%,
+  100% {
+    transform: scale(0.75);
+    opacity: 0.75;
+  }
+
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+
+.pcbyte-status-up {
+  animation: pcbyte-status-breathe 1.4s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.pcbyte-status-degraded {
+  animation: pcbyte-status-breathe 0.9s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.pcbyte-status-down {
+  animation: pcbyte-status-breathe 0.55s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
+}

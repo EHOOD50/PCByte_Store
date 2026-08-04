@@ -17,8 +17,17 @@ import BrandManager from "./admin/BrandManager";
 import OrdersManager from "./admin/OrdersManager";
 import ShippingManager from "./admin/ShippingManager";
 import MenuBuilder from "./admin/MenuBuilder";
+import UserManager from "./admin/users/UserManager";
 
 import adminApi from "../api/adminApi";
+
+import QuickActionsCard, {
+  type QuickActionId,
+} from "./admin/home/QuickActionsCard";
+
+import type {
+  AdminDashboardAlert,
+} from "../types/adminDashboard";
 
 import type {
   AdminTab,
@@ -53,7 +62,7 @@ interface AdminNavigationState {
   orderId?: number;
   productId?: number;
   shippingId?: number;
-  customerId?: number;
+  userId?: number;
 }
 
 const VALID_ADMIN_TABS: AdminTab[] = [
@@ -63,8 +72,8 @@ const VALID_ADMIN_TABS: AdminTab[] = [
   "brands",
   "orders",
   "shipping",
+  "users",
   "menu-builder",
-  "customers",
   "settings",
 ];
 
@@ -154,10 +163,10 @@ const readNavigationFromUrl =
           )
         ),
 
-      customerId:
+      userId:
         parsePositiveId(
           parameters.get(
-            "customerId"
+            "userId"
           )
         ),
     };
@@ -190,7 +199,7 @@ const buildNavigationUrl = (
   );
 
   url.searchParams.delete(
-    "customerId"
+    "userId"
   );
 
   if (
@@ -230,13 +239,13 @@ const buildNavigationUrl = (
   }
 
   if (
-    navigation.customerId !==
+    navigation.userId !==
     undefined
   ) {
     url.searchParams.set(
-      "customerId",
+      "userId",
       String(
-        navigation.customerId
+        navigation.userId
       )
     );
   }
@@ -295,6 +304,13 @@ const AdminDashboard: React.FC<
 
   const activeTab =
     navigation.tab;
+
+    const [
+  pendingQuickAction,
+  setPendingQuickAction,
+] = useState<QuickActionId | null>(
+  null
+);
 
   const showNotification = (
     message: string
@@ -626,21 +642,123 @@ const AdminDashboard: React.FC<
     });
   };
 
+const handleQuickAction = (
+  action: QuickActionId
+) => {
+  switch (action) {
+    case "new-product":
+      setPendingQuickAction(action);
+      changeTab("products");
+      break;
+
+    case "inventory":
+      changeTab("products");
+      break;
+
+    case "categories":
+      changeTab("categories");
+      break;
+
+    case "brands":
+      changeTab("brands");
+      break;
+
+    case "view-orders":
+      changeTab("orders");
+      break;
+
+    case "new-shipment":
+      changeTab("shipping");
+      break;
+  }
+};
+
+const handleOpenAlert = (
+  alert: AdminDashboardAlert
+) => {
+  if (
+    alert.referenceId ===
+    null
+  ) {
+    return;
+  }
+
+  switch (alert.action) {
+    case "OPEN_ORDER":
+      navigateAdmin({
+        tab: "orders",
+        orderId:
+          alert.referenceId,
+      });
+      break;
+
+    case "OPEN_PRODUCT":
+      navigateAdmin({
+        tab: "products",
+        productId:
+          alert.referenceId,
+      });
+      break;
+
+    case "OPEN_CUSTOMER":
+      navigateAdmin({
+        tab: "users",
+        userId:
+          alert.referenceId,
+      });
+      break;
+
+    case "OPEN_PAYMENT":
+      navigateAdmin({
+        tab: "orders",
+        orderId:
+          alert.referenceId,
+      });
+      break;
+
+    case "NONE":
+      break;
+  }
+};
+
   const renderActiveModule =
     () => {
       switch (activeTab) {
         case "home":
-          return <AdminHome />;
+  return (
+    <AdminHome
+  onQuickAction={
+    handleQuickAction
+  }
+  onViewAllOrders={() =>
+    changeTab("orders")
+  }
+  onViewCatalog={() =>
+    changeTab("products")
+  }
+  onOpenAlert={
+  handleOpenAlert
+}
+/>
+  );
 
         case "products":
           return (
             <ProductManager
-              onManageCategories={() =>
-                changeTab(
-                  "categories"
-                )
-              }
-            />
+  pendingQuickAction={
+    pendingQuickAction
+  }
+  onQuickActionHandled={() =>
+    setPendingQuickAction(
+      null
+    )
+  }
+  onManageCategories={() =>
+    changeTab(
+      "categories"
+    )
+  }
+/>
           );
 
         case "categories":
@@ -654,13 +772,37 @@ const AdminDashboard: React.FC<
           );
 
         case "orders":
-          return (
-            <OrdersManager />
-          );
+  return (
+    <OrdersManager
+      selectedOrderId={
+        navigation.orderId
+      }
+      onOrderSelectionHandled={() => {
+        if (
+          navigation.orderId ===
+          undefined
+        ) {
+          return;
+        }
+
+        navigateAdmin(
+          {
+            tab: "orders",
+          },
+          true
+        );
+      }}
+    />
+  );
 
         case "shipping":
           return (
             <ShippingManager />
+          );
+
+        case "users":
+          return (
+            <UserManager />
           );
 
         case "menu-builder":
@@ -681,7 +823,6 @@ const AdminDashboard: React.FC<
             />
           );
 
-        case "customers":
         case "settings":
           return (
             <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
@@ -700,7 +841,20 @@ const AdminDashboard: React.FC<
           );
 
         default:
-          return <AdminHome />;
+          return; <AdminHome
+  onQuickAction={
+    handleQuickAction
+  }
+  onViewAllOrders={() =>
+    changeTab("orders")
+  }
+  onViewCatalog={() =>
+    changeTab("products")
+  }
+  onOpenAlert={
+  handleOpenAlert
+}
+/>
       }
     };
 

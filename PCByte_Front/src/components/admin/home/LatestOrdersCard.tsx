@@ -11,6 +11,8 @@ interface LatestOrdersCardProps {
   orders:
     | AdminDashboardLatestOrder[]
     | null;
+
+  onViewAll: () => void;
 }
 
 const formatCurrency = (
@@ -49,6 +51,7 @@ const getStatusStyle = (
 
 const LatestOrdersCard = ({
   orders,
+  onViewAll,
 }: LatestOrdersCardProps) => {
   const visibleOrders =
     orders?.slice(0, 5) ?? [];
@@ -68,6 +71,7 @@ const LatestOrdersCard = ({
 
         <button
           type="button"
+          onClick={onViewAll}
           className="flex items-center gap-2 rounded-xl bg-[#0066FF] px-4 py-2 text-xs font-black text-white transition hover:brightness-110"
         >
           Ver todos

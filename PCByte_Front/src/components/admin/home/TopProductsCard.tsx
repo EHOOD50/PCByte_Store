@@ -11,6 +11,8 @@ interface TopProductsCardProps {
   products:
     | AdminDashboardTopProduct[]
     | null;
+
+  onViewCatalog: () => void;
 }
 
 const medals = [
@@ -36,6 +38,7 @@ const formatCurrency = (
 
 const TopProductsCard = ({
   products,
+  onViewCatalog,
 }: TopProductsCardProps) => {
   const visibleProducts =
     products?.slice(0, 5) ?? [];
@@ -146,6 +149,7 @@ const TopProductsCard = ({
 
       <button
         type="button"
+        onClick={onViewCatalog}
         className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#0066FF]/20 bg-[#0066FF]/5 py-3 text-xs font-black uppercase tracking-wider text-[#0066FF] transition hover:bg-[#0066FF] hover:text-white"
       >
         Ver catálogo completo
