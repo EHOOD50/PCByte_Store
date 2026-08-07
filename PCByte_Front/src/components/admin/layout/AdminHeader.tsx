@@ -14,12 +14,18 @@ import {
   UserRound,
 } from "lucide-react";
 
+import type {
+  AdminTab,
+} from "./AdminSidebar";
+
 interface AdminHeaderProps {
+  activeTab: AdminTab;
   onOpenSidebar: () => void;
   onLogout: () => void;
 }
 
 const AdminHeader = ({
+  activeTab,
   onOpenSidebar,
   onLogout,
 }: AdminHeaderProps) => {
@@ -32,6 +38,9 @@ const AdminHeader = ({
     useRef<HTMLDivElement | null>(
       null
     );
+
+    const hideGlobalSearch =
+  activeTab === "orders";
 
   useEffect(() => {
     const handleOutsideClick = (
@@ -90,6 +99,8 @@ const AdminHeader = ({
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
+
+        {!hideGlobalSearch && (
         <div className="relative hidden xl:block">
           <Search
             size={18}
@@ -102,6 +113,7 @@ const AdminHeader = ({
             className="h-12 w-[300px] rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0066FF] focus:bg-white"
           />
         </div>
+        )}
 
         <button
           type="button"

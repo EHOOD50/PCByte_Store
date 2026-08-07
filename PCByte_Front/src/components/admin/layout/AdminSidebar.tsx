@@ -92,20 +92,15 @@ const navigationGroups: NavigationGroup[] = [
     title: "Operación",
     items: [
       {
-        id: "orders",
-        label: "Pedidos",
-        icon: <ShoppingCart size={18} />,
-      },
-      {
-        id: "shipping",
-        label: "Logística",
-        icon: <Truck size={18} />,
-      },
-      {
-        id: "users",
-        label: "Usuarios",
-        icon: <UsersRound size={18} />,
-      },
+  id: "orders",
+  label: "Pedidos y despachos",
+  icon: <ShoppingCart size={18} />,
+},
+{
+  id: "shipping",
+  label: "Tarifas de despacho",
+  icon: <Truck size={18} />,
+},
     ],
   },
   {
@@ -191,7 +186,7 @@ const AdminSidebar = ({
               className={`flex shrink-0 items-center justify-center overflow-hidden ${
                 collapsed
                   ? "h-14 w-14"
-                  : "h-[90px] w-[190px]"
+                  : "h-[84px] w-[180px]"
               }`}
             >
               <img

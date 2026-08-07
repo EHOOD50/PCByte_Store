@@ -9,27 +9,33 @@ public record OrderResponseDTO(
         Long id,
 
         // --- Datos del cliente ---
-        String fullName,          // Nombre del receptor (Snapshot)
-        String email,             // Email usado en la compra
-        String phone,             // Teléfono de contacto (Snapshot)
+        String fullName,
+        String email,
+        String phone,
+        String userStatus,
 
         // --- Resumen financiero ---
-        BigDecimal subtotal,      // Total de productos sin despacho
-        BigDecimal shippingCost,  // Costo del despacho
-        BigDecimal total,         // Subtotal + despacho
+        BigDecimal subtotal,
+        BigDecimal shippingCost,
+        BigDecimal total,
 
         // --- Estado y pago ---
-        String status,            // Valor del Enum OrderStatus
+        String status,
         LocalDateTime createdAt,
-        String paymentId,         // ID de Mercado Pago
+        LocalDateTime paidAt,
+        LocalDateTime preparingAt,
+        LocalDateTime shippedAt,
+        LocalDateTime deliveredAt,
+        LocalDateTime cancelledAt,
+        String paymentId,
 
         // --- Snapshot de dirección ---
-        String street,            // Calle
-        String number,            // Número / altura
-        String apartment,         // Depto / block / oficina
+        String street,
+        String number,
+        String apartment,
         String city,
         String region,
-        String extraInfo,         // Referencias adicionales
+        String extraInfo,
 
         // --- Snapshot de despacho ---
         Long shippingRateId,

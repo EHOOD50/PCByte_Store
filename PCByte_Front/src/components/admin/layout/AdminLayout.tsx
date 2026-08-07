@@ -36,7 +36,9 @@ const AdminLayout = ({
         mobileOpen={mobileOpen}
         onChangeTab={onChangeTab}
         onToggleCollapsed={() =>
-          setCollapsed((value) => !value)
+          setCollapsed(
+            (value) => !value
+          )
         }
         onCloseMobile={() =>
           setMobileOpen(false)
@@ -44,26 +46,21 @@ const AdminLayout = ({
         onLogout={onLogout}
       />
 
-      <div
-        className="transition-all duration-300"
-        style={{
-          marginLeft: collapsed
-            ? undefined
-            : undefined,
-        }}
-      >
+      <div className="transition-all duration-300">
         <div
-          className={`hidden lg:block`}
+          className="hidden lg:block"
           style={{
-            marginLeft: sidebarWidth,
+            marginLeft:
+              sidebarWidth,
           }}
         >
           <AdminHeader
-  onOpenSidebar={() =>
-    setMobileOpen(true)
-  }
-  onLogout={onLogout}
-/>
+            activeTab={activeTab}
+            onOpenSidebar={() =>
+              setMobileOpen(true)
+            }
+            onLogout={onLogout}
+          />
 
           <main className="p-8">
             {children}
@@ -72,11 +69,12 @@ const AdminLayout = ({
 
         <div className="lg:hidden">
           <AdminHeader
-  onOpenSidebar={() =>
-    setMobileOpen(true)
-  }
-  onLogout={onLogout}
-/>
+            activeTab={activeTab}
+            onOpenSidebar={() =>
+              setMobileOpen(true)
+            }
+            onLogout={onLogout}
+          />
 
           <main className="p-5">
             {children}

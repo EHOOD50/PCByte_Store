@@ -1,0 +1,14 @@
+ALTER TABLE orders
+ADD COLUMN paid_at TIMESTAMP;
+
+ALTER TABLE orders
+ADD COLUMN preparing_at TIMESTAMP;
+
+ALTER TABLE orders
+ADD COLUMN shipped_at TIMESTAMP;
+
+ALTER TABLE orders
+ADD COLUMN delivered_at TIMESTAMP;
+
+ALTER TABLE orders
+ADD COLUMN cancelled_at TIMESTAMP;

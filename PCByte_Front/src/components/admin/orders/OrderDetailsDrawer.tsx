@@ -86,6 +86,12 @@ export interface OrderDrawerData {
   status?: string | null;
   createdAt?: string;
 
+  paidAt?: string | null;
+  preparingAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+
   user?: OrderDrawerUser | null;
 
   /*
@@ -891,7 +897,13 @@ const OrderDetailsDrawer = ({
           </section>
 
           <OrderTimeline
-            status={status}
+          status={status}
+          createdAt={order.createdAt}
+          paidAt={order.paidAt}
+          preparingAt={order.preparingAt}
+          shippedAt={order.shippedAt}
+          deliveredAt={order.deliveredAt}
+          cancelledAt={order.cancelledAt}
           />
 
           {canUpdateStatus && (

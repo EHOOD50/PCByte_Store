@@ -7,7 +7,6 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
   Eye,
   MapPin,
   Package,
@@ -18,10 +17,13 @@ import {
 } from "lucide-react";
 
 import adminApi from "../../api/adminApi";
-
+import {
+  getOrderPriority,
+} from "../../utils/orderPriority";
 import OrderDetailsDrawer from "./orders/OrderDetailsDrawer";
 import OrderStatusBadge from "./orders/OrderStatusBadge";
 import OrderStatusSelect from "./orders/OrderStatusSelect";
+import OrderPriorityBadge from "./orders/OrderPriorityBadge";
 
 import type {
   OrderDrawerData,
@@ -66,7 +68,7 @@ interface Order {
   email?: string;
   fullName?: string;
   phone?: string;
-
+  userStatus?: string | null;
   street?: string;
   number?: string;
   apartment?: string;
@@ -107,6 +109,12 @@ interface Order {
   status?: string | null;
   createdAt?: string;
 
+  paidAt?: string | null;
+  preparingAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+
   user?: OrderUser | null;
 
   orderItems?: OrderItem[];
@@ -115,7 +123,9 @@ interface Order {
 
 type StatusFilter =
   | "ALL"
-  | OrderStatus;
+  | OrderStatus
+  | "DELIVERED_TODAY"
+  | "DELAYED_PREPARATION";
 
 type NotificationType =
   | "success"
@@ -136,6 +146,16 @@ const ORDER_STATUSES: OrderStatus[] = [
   "ENTREGADO",
   "CANCELADO",
 ];
+
+const PRIORITY_WEIGHT = {
+  URGENT: 0,
+  HIGH: 1,
+  NORMAL: 2,
+  WAITING_PAYMENT: 3,
+  IN_TRANSIT: 4,
+  FINISHED: 5,
+  NO_MANAGEMENT: 6,
+} as const;
 
 const formatCurrency = (
   value:
@@ -183,6 +203,37 @@ const formatDate = (
   ).format(date);
 };
 
+const isSameLocalDay = (
+  value?: string | null
+) => {
+  if (!value) {
+    return false;
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return false;
+  }
+
+  const today =
+    new Date();
+
+  return (
+    date.getFullYear() ===
+      today.getFullYear() &&
+    date.getMonth() ===
+      today.getMonth() &&
+    date.getDate() ===
+      today.getDate()
+  );
+};
+
 const getCustomerEmail = (
   order: Order
 ) => {
@@ -224,6 +275,75 @@ const getNormalizedStatus = (
   return "PENDIENTE";
 };
 
+const getPriorityReferenceDate = (
+  order: Order
+) => {
+  const status =
+    getNormalizedStatus(
+      order.status
+    );
+
+  let referenceDate:
+    | string
+    | null
+    | undefined;
+
+  switch (status) {
+    case "PAGADO":
+      referenceDate =
+        order.paidAt ??
+        order.createdAt;
+      break;
+
+    case "PREPARANDO":
+      referenceDate =
+        order.preparingAt ??
+        order.paidAt ??
+        order.createdAt;
+      break;
+
+    case "ENVIADO":
+      referenceDate =
+        order.shippedAt ??
+        order.preparingAt ??
+        order.createdAt;
+      break;
+
+    case "ENTREGADO":
+      referenceDate =
+        order.deliveredAt ??
+        order.createdAt;
+      break;
+
+    case "CANCELADO":
+      referenceDate =
+        order.cancelledAt ??
+        order.createdAt;
+      break;
+
+    case "PENDIENTE":
+    default:
+      referenceDate =
+        order.createdAt;
+      break;
+  }
+
+  if (!referenceDate) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const timestamp =
+    new Date(
+      referenceDate
+    ).getTime();
+
+  return Number.isNaN(
+    timestamp
+  )
+    ? Number.MAX_SAFE_INTEGER
+    : timestamp;
+};
+
 const getOrderItems = (
   order: Order
 ): OrderItem[] => {
@@ -232,6 +352,17 @@ const getOrderItems = (
     order.items ??
     []
   );
+};
+
+const getRowPriorityClass = (
+  order: Order
+) => {
+  return getOrderPriority(
+    order.status,
+    order.paidAt,
+    order.preparingAt,
+    order.shippedAt
+  ).rowClasses;
 };
 
 const toDrawerData = (
@@ -313,10 +444,25 @@ const toDrawerData = (
       order.status,
 
     createdAt:
-      order.createdAt,
+  order.createdAt,
 
-    user:
-      order.user,
+paidAt:
+  order.paidAt,
+
+preparingAt:
+  order.preparingAt,
+
+shippedAt:
+  order.shippedAt,
+
+deliveredAt:
+  order.deliveredAt,
+
+cancelledAt:
+  order.cancelledAt,
+
+user:
+  order.user,
 
     orderItems:
       normalizedItems.map(
@@ -608,31 +754,75 @@ const OrdersManager = ({
                 order.status
               );
 
-            const matchesStatus =
-              filterStatus ===
-                "ALL" ||
-              status ===
-                filterStatus;
+            let matchesStatus = true;
 
-            if (!matchesStatus) {
-              return false;
-            }
+if (filterStatus === "DELIVERED_TODAY") {
+  matchesStatus =
+    status === "ENTREGADO" &&
+    isSameLocalDay(
+      order.deliveredAt
+    );
+} else if (
+  filterStatus ===
+  "DELAYED_PREPARATION"
+) {
+  if (
+    status !== "PREPARANDO" ||
+    !order.preparingAt
+  ) {
+    matchesStatus = false;
+  } else {
+    const preparingTime =
+      new Date(
+        order.preparingAt
+      ).getTime();
+
+    const elapsedHours =
+      Number.isNaN(
+        preparingTime
+      )
+        ? 0
+        : (
+            Date.now() -
+            preparingTime
+          ) /
+          3_600_000;
+
+    matchesStatus =
+      elapsedHours >= 4;
+  }
+} else if (
+  filterStatus !== "ALL"
+) {
+  matchesStatus =
+    status === filterStatus;
+}
+
+if (!matchesStatus) {
+  return false;
+}
 
             if (!term) {
               return true;
             }
 
-            const searchableValues =
-              [
-                order.id,
-                order.paymentId,
-                order.fullName,
-                order.customerEmail,
-                order.email,
-                order.phone,
-                order.city,
-                order.region,
-              ];
+            const searchableValues = [
+            order.id,
+            `#${order.id}`,
+            order.paymentId,
+            order.fullName,
+            order.customerEmail,
+            order.email,
+            order.phone,
+            order.street,
+            order.number,
+            order.apartment,
+            order.city,
+            order.region,
+            order.extraInfo,
+            order.shippingLabel,
+            order.shippingCarrier,
+            ];
 
             return searchableValues.some(
               (value) =>
@@ -651,6 +841,71 @@ const OrdersManager = ({
         filterStatus,
       ]
     );
+
+    const prioritizedOrders =
+  useMemo(
+    () => {
+      return [
+        ...filteredOrders,
+      ].sort(
+        (
+          firstOrder,
+          secondOrder
+        ) => {
+          const firstPriority =
+            getOrderPriority(
+              firstOrder.status,
+              firstOrder.paidAt,
+              firstOrder.preparingAt
+            );
+
+          const secondPriority =
+            getOrderPriority(
+              secondOrder.status,
+              secondOrder.paidAt,
+              secondOrder.preparingAt
+            );
+
+            
+
+          const priorityDifference =
+            PRIORITY_WEIGHT[
+              firstPriority.priority
+            ] -
+            PRIORITY_WEIGHT[
+              secondPriority.priority
+            ];
+
+          if (
+            priorityDifference !== 0
+          ) {
+            return priorityDifference;
+          }
+
+          /*
+           * Cuando dos pedidos tienen la misma prioridad,
+           * el más antiguo aparece primero para respetar
+           * el orden operacional.
+           */
+          const firstReferenceDate =
+            getPriorityReferenceDate(
+              firstOrder
+            );
+
+          const secondReferenceDate =
+            getPriorityReferenceDate(
+              secondOrder
+            );
+
+          return (
+            firstReferenceDate -
+            secondReferenceDate
+          );
+        }
+      );
+    },
+    [filteredOrders]
+  );
 
   const statusCounts =
     useMemo(
@@ -688,14 +943,158 @@ const OrdersManager = ({
       [orders]
     );
 
+    const operationalIndicators =
+    useMemo(
+    () => {
+      const waitingPayment =
+        orders.filter(
+          (order) =>
+            getNormalizedStatus(
+              order.status
+            ) === "PENDIENTE"
+        ).length;
+
+      const readyToPrepare =
+        orders.filter(
+          (order) =>
+            getNormalizedStatus(
+              order.status
+            ) === "PAGADO"
+        ).length;
+
+      const delayedPreparation =
+        orders.filter(
+          (order) => {
+            const status =
+              getNormalizedStatus(
+                order.status
+              );
+
+            if (
+              status !==
+                "PREPARANDO" ||
+              !order.preparingAt
+            ) {
+              return false;
+            }
+
+            const preparingTime =
+              new Date(
+                order.preparingAt
+              ).getTime();
+
+            if (
+              Number.isNaN(
+                preparingTime
+              )
+            ) {
+              return false;
+            }
+
+            const elapsedHours =
+              (
+                Date.now() -
+                preparingTime
+              ) /
+              3_600_000;
+
+            return (
+              elapsedHours >= 4
+            );
+          }
+        ).length;
+
+      const inTransit =
+        orders.filter(
+          (order) =>
+            getNormalizedStatus(
+              order.status
+            ) === "ENVIADO"
+        ).length;
+
+      const deliveredToday =
+        orders.filter(
+          (order) =>
+            getNormalizedStatus(
+              order.status
+            ) ===
+              "ENTREGADO" &&
+            isSameLocalDay(
+              order.deliveredAt
+            )
+        ).length;
+
+      const cancelled =
+        orders.filter(
+          (order) =>
+            getNormalizedStatus(
+              order.status
+            ) === "CANCELADO"
+        ).length;
+
+      return {
+        waitingPayment,
+        readyToPrepare,
+        delayedPreparation,
+        inTransit,
+        deliveredToday,
+        cancelled,
+      };
+    },
+    [orders]
+  );
+
+  const operationalSummary =
+  useMemo(() => {
+
+    const activeOrders =
+      orders.filter(order => {
+        const status =
+          getNormalizedStatus(order.status);
+
+        return (
+          status !== "ENTREGADO" &&
+          status !== "CANCELADO"
+        );
+      }).length;
+
+    const urgentOrders =
+      orders.filter(order =>
+        getOrderPriority(
+          order.status,
+          order.paidAt,
+          order.preparingAt,
+          order.shippedAt
+        ).priority === "URGENT"
+      ).length;
+
+    const preparingOrders =
+      orders.filter(order =>
+        getNormalizedStatus(order.status) === "PREPARANDO"
+      ).length;
+
+    const inTransitOrders =
+      orders.filter(order =>
+        getNormalizedStatus(order.status) === "ENVIADO"
+      ).length;
+
+    return {
+      activeOrders,
+      urgentOrders,
+      preparingOrders,
+      inTransitOrders,
+    };
+
+  }, [orders]);
+
   const totalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        filteredOrders.length /
-          ITEMS_PER_PAGE
-      )
-    );
+  Math.max(
+    1,
+    Math.ceil(
+      prioritizedOrders.length /
+        ITEMS_PER_PAGE
+    )
+  );
 
   const safeCurrentPage =
     Math.min(
@@ -704,13 +1103,13 @@ const OrdersManager = ({
     );
 
   const currentOrders =
-    filteredOrders.slice(
-      (
-        safeCurrentPage - 1
-      ) * ITEMS_PER_PAGE,
-      safeCurrentPage *
-        ITEMS_PER_PAGE
-    );
+  prioritizedOrders.slice(
+    (
+      safeCurrentPage - 1
+    ) * ITEMS_PER_PAGE,
+    safeCurrentPage *
+      ITEMS_PER_PAGE
+  );
 
   const openOrderDetails = (
     orderId: number
@@ -730,15 +1129,16 @@ const OrdersManager = ({
     };
 
   const updateOrderStatus =
-    async (
-      orderId: number,
-      status: OrderStatus
-    ) => {
-      setUpdatingOrderId(
-        orderId
-      );
+  async (
+    orderId: number,
+    status: OrderStatus
+  ) => {
+    setUpdatingOrderId(
+      orderId
+    );
 
-      try {
+    try {
+      const response =
         await adminApi.patch(
           `/admin/orders/${orderId}/status`,
           {
@@ -746,42 +1146,45 @@ const OrdersManager = ({
           }
         );
 
-        setOrders(
-          (
-            currentOrdersState
-          ) =>
-            currentOrdersState.map(
-              (order) =>
-                order.id ===
-                orderId
-                  ? {
-                      ...order,
-                      status,
-                    }
-                  : order
-            )
-        );
+      const updatedOrder =
+        response.data as Order;
 
-        showNotification(
-          "success",
-          `Pedido #${orderId} actualizado a ${status}.`
-        );
-      } catch (error) {
-        console.error(
-          "Error al actualizar el pedido:",
-          error
-        );
+      setOrders(
+        (
+          currentOrdersState
+        ) =>
+          currentOrdersState.map(
+            (order) =>
+              order.id ===
+              orderId
+                ? {
+                    ...order,
+                    ...updatedOrder,
+                  }
+                : order
+          )
+      );
 
-        showNotification(
-          "error",
-          "No se pudo cambiar el estado del pedido."
-        );
-      } finally {
-        setUpdatingOrderId(
-          null
-        );
-      }
-    };
+      showNotification(
+        "success",
+        `Pedido #${orderId} actualizado a ${status}.`
+      );
+    } catch (error) {
+      console.error(
+        "Error al actualizar el pedido:",
+        error
+      );
+
+      showNotification(
+        "error",
+        "No se pudo cambiar el estado del pedido."
+      );
+    } finally {
+      setUpdatingOrderId(
+        null
+      );
+    }
+  };
 
   if (loading) {
     return (
@@ -823,12 +1226,12 @@ const OrdersManager = ({
               </p>
 
               <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
-                Gestión de pedidos
+                Pedidos y despachos
               </h2>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Revisa clientes, pagos, productos, destinos y estados de preparación o despacho.
-              </p>
+  Gestiona pagos, preparación, despacho y entrega de cada pedido desde un solo lugar.
+</p>
             </div>
 
             <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
@@ -914,42 +1317,138 @@ const OrdersManager = ({
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          {ORDER_STATUSES.map(
-            (status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() =>
-                  setFilterStatus(
-                    filterStatus ===
-                      status
-                      ? "ALL"
-                      : status
-                  )
-                }
-                className={`rounded-2xl border p-4 text-left transition ${
-                  filterStatus ===
-                  status
-                    ? "border-[#0066FF] bg-[#0066FF]/5 shadow-sm"
-                    : "border-slate-200 bg-white hover:border-[#0066FF]/25"
-                }`}
-              >
-                <OrderStatusBadge
-                  status={status}
-                  compact
-                />
+  <OperationalIndicatorCard
+    title="Esperando pago"
+    value={
+      operationalIndicators
+        .waitingPayment
+    }
+    description="Aún no ingresan al flujo operativo"
+    active={
+      filterStatus ===
+      "PENDIENTE"
+    }
+    tone="amber"
+    onClick={() =>
+      setFilterStatus(
+        filterStatus ===
+          "PENDIENTE"
+          ? "ALL"
+          : "PENDIENTE"
+      )
+    }
+  />
 
-                <p className="mt-3 text-2xl font-black text-slate-900">
-                  {
-                    statusCounts[
-                      status
-                    ]
-                  }
-                </p>
-              </button>
-            )
-          )}
-        </section>
+  <OperationalIndicatorCard
+    title="Listos para preparar"
+    value={
+      operationalIndicators
+        .readyToPrepare
+    }
+    description="Pagados y pendientes de preparación"
+    active={
+      filterStatus ===
+      "PAGADO"
+    }
+    tone="blue"
+    onClick={() =>
+      setFilterStatus(
+        filterStatus ===
+          "PAGADO"
+          ? "ALL"
+          : "PAGADO"
+      )
+    }
+  />
+
+  <OperationalIndicatorCard
+    title="Preparación atrasada"
+    value={
+      operationalIndicators
+        .delayedPreparation
+    }
+    description="Más de 4 horas en preparación"
+    active={
+  filterStatus ===
+  "DELAYED_PREPARATION"
+}
+    tone="red"
+    onClick={() =>
+  setFilterStatus(
+    filterStatus ===
+      "DELAYED_PREPARATION"
+      ? "ALL"
+      : "DELAYED_PREPARATION"
+  )
+}
+  />
+
+  <OperationalIndicatorCard
+    title="En ruta"
+    value={
+      operationalIndicators
+        .inTransit
+    }
+    description="Pedidos entregados al transportista"
+    active={
+      filterStatus ===
+      "ENVIADO"
+    }
+    tone="cyan"
+    onClick={() =>
+      setFilterStatus(
+        filterStatus ===
+          "ENVIADO"
+          ? "ALL"
+          : "ENVIADO"
+      )
+    }
+  />
+
+  <OperationalIndicatorCard
+    title="Entregados hoy"
+    value={
+      operationalIndicators
+        .deliveredToday
+    }
+    description="Entregas confirmadas durante el día"
+    active={
+      filterStatus ===
+      "ENTREGADO"
+    }
+    tone="green"
+    onClick={() =>
+  setFilterStatus(
+    filterStatus ===
+      "DELIVERED_TODAY"
+      ? "ALL"
+      : "DELIVERED_TODAY"
+  )
+}
+  />
+
+  <OperationalIndicatorCard
+    title="Cancelados"
+    value={
+      operationalIndicators
+        .cancelled
+    }
+    description="Órdenes fuera del flujo operativo"
+    active={
+      filterStatus ===
+      "CANCELADO"
+    }
+    tone="slate"
+    onClick={() =>
+      setFilterStatus(
+        filterStatus ===
+          "CANCELADO"
+          ? "ALL"
+          : "CANCELADO"
+      )
+    }
+  />
+</section>
 
         <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1020,12 +1519,16 @@ const OrdersManager = ({
                       </th>
 
                       <th className="px-4 py-3.5">
-                        Estado
-                      </th>
+  Estado
+</th>
 
-                      <th className="px-4 py-3.5 text-right">
-                        Total
-                      </th>
+<th className="px-4 py-3.5">
+  Prioridad
+</th>
+
+<th className="px-4 py-3.5 text-right">
+  Total
+</th>
 
                       <th className="px-4 py-3.5">
                         Acción
@@ -1052,34 +1555,30 @@ const OrdersManager = ({
 
                         return (
                           <tr
-                            key={
-                              order.id
-                            }
-                            tabIndex={0}
-                            role="button"
-                            onClick={() =>
-                              openOrderDetails(
-                                order.id
-                              )
-                            }
-                            onKeyDown={(
-                              event
-                            ) => {
-                              if (
-                                event.key ===
-                                  "Enter" ||
-                                event.key ===
-                                  " "
-                              ) {
-                                event.preventDefault();
+  key={order.id}
+  tabIndex={0}
+  role="button"
+  onClick={() =>
+    openOrderDetails(
+      order.id
+    )
+  }
+  onKeyDown={(event) => {
+    if (
+      event.key === "Enter" ||
+      event.key === " "
+    ) {
+      event.preventDefault();
 
-                                openOrderDetails(
-                                  order.id
-                                );
-                              }
-                            }}
-                            className="cursor-pointer transition hover:bg-[#0066FF]/[0.035] focus:bg-[#0066FF]/[0.05] focus:outline-none"
-                          >
+      openOrderDetails(
+        order.id
+      );
+    }
+  }}
+  className={`${getRowPriorityClass(
+    order
+  )} cursor-pointer transition hover:brightness-[0.99] focus:outline-none`}
+>
                             <td className="px-4 py-3 align-middle">
                               <p className="text-base font-black text-[#0066FF]">
                                 #
@@ -1122,10 +1621,13 @@ const OrdersManager = ({
                                   </p>
 
                                   <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[7px] font-black uppercase text-slate-500">
-                                    {order.userId ||
-                                    order.user?.id
-                                      ? "Registrado"
-                                      : "Invitado"}
+                                    {order.userStatus === "REGISTRADO"
+  ? "Registrado"
+  : order.userStatus === "PENDIENTE_VERIFICACION"
+    ? "Pendiente de verificación"
+    : order.userStatus === "BLOQUEADO"
+      ? "Bloqueado"
+      : "Invitado"}
                                   </span>
                                 </div>
                               </div>
@@ -1159,24 +1661,27 @@ const OrdersManager = ({
                             </td>
 
                             <td className="px-4 py-3 align-middle">
-                              <OrderStatusBadge
-                                status={
-                                  status
-                                }
-                              />
+  <OrderStatusBadge
+    status={status}
+  />
 
-                              <p className="mt-1.5 text-[9px] text-slate-500">
-                                {
-                                  orderItems.length
-                                }{" "}
-                                {orderItems.length ===
-                                1
-                                  ? "producto"
-                                  : "productos"}
-                              </p>
-                            </td>
+  <p className="mt-1.5 text-[9px] text-slate-500">
+    {orderItems.length}{" "}
+    {orderItems.length === 1
+      ? "producto"
+      : "productos"}
+  </p>
+</td>
 
-                            <td className="px-4 py-3 text-right align-middle">
+<td className="px-4 py-3 align-middle">
+  <OrderPriorityBadge
+  status={status}
+  paidAt={order.paidAt}
+  preparingAt={order.preparingAt}
+  shippedAt={order.shippedAt}
+/>
+</td>
+<td className="px-4 py-3 text-right align-middle">
                               <p className="whitespace-nowrap text-sm font-black text-slate-900">
                                 {formatCurrency(
                                   order.total
@@ -1481,18 +1986,65 @@ const OrdersManager = ({
           </section>
         )}
 
-        <section className="rounded-2xl border border-[#0066FF]/15 bg-[#0066FF]/5 p-4">
-          <div className="flex items-start gap-3">
-            <CircleDollarSign
-              size={18}
-              className="mt-0.5 shrink-0 text-[#0066FF]"
-            />
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+  <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+    <div>
+      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#0066FF]">
+        Centro operativo
+      </p>
 
-            <p className="text-xs leading-5 text-slate-600">
-              Selecciona una fila o pulsa “Ver” para abrir el detalle completo del pedido.
-            </p>
-          </div>
-        </section>
+      <h3 className="mt-1 text-xl font-black tracking-tight text-slate-900">
+        Resumen de la operación
+      </h3>
+
+      <p className="mt-2 max-w-xl text-xs leading-5 text-slate-500">
+        Estado general de los pedidos que todavía requieren gestión.
+      </p>
+    </div>
+
+    <div className="grid flex-1 gap-3 sm:grid-cols-2 xl:max-w-4xl xl:grid-cols-4">
+      <OperationalSummaryCard
+        label="Pedidos activos"
+        value={
+          operationalSummary.activeOrders
+        }
+        description="Aún no finalizados"
+        tone="blue"
+      />
+
+      <OperationalSummaryCard
+        label="Urgentes"
+        value={
+          operationalSummary.urgentOrders
+        }
+        description="Requieren atención inmediata"
+        tone={
+          operationalSummary.urgentOrders > 0
+            ? "red"
+            : "slate"
+        }
+      />
+
+      <OperationalSummaryCard
+        label="Preparando"
+        value={
+          operationalSummary.preparingOrders
+        }
+        description="Actualmente en preparación"
+        tone="violet"
+      />
+
+      <OperationalSummaryCard
+        label="En ruta"
+        value={
+          operationalSummary.inTransitOrders
+        }
+        description="Entregados al transportista"
+        tone="cyan"
+      />
+    </div>
+  </div>
+</section>
       </div>
 
       <OrderDetailsDrawer
@@ -1527,4 +2079,260 @@ const OrdersManager = ({
   );
 };
 
+type OperationalTone =
+  | "amber"
+  | "blue"
+  | "red"
+  | "cyan"
+  | "green"
+  | "slate";
+
+interface OperationalIndicatorCardProps {
+  title: string;
+  value: number;
+  description: string;
+  active: boolean;
+  tone: OperationalTone;
+  onClick: () => void;
+}
+
+const operationalToneClasses:
+  Record<
+    OperationalTone,
+    {
+      border: string;
+      background: string;
+      value: string;
+      dot: string;
+    }
+  > = {
+  amber: {
+    border:
+      "border-amber-200",
+    background:
+      "bg-amber-50/60",
+    value:
+      "text-amber-700",
+    dot:
+      "bg-amber-500",
+  },
+
+  blue: {
+    border:
+      "border-blue-200",
+    background:
+      "bg-blue-50/60",
+    value:
+      "text-blue-700",
+    dot:
+      "bg-blue-500",
+  },
+
+  red: {
+    border:
+      "border-red-200",
+    background:
+      "bg-red-50/60",
+    value:
+      "text-red-700",
+    dot:
+      "bg-red-500",
+  },
+
+  cyan: {
+    border:
+      "border-cyan-200",
+    background:
+      "bg-cyan-50/60",
+    value:
+      "text-cyan-700",
+    dot:
+      "bg-cyan-500",
+  },
+
+  green: {
+    border:
+      "border-[#97cf00]/35",
+    background:
+      "bg-[#97cf00]/10",
+    value:
+      "text-[#5f8200]",
+    dot:
+      "bg-[#97cf00]",
+  },
+
+  slate: {
+    border:
+      "border-slate-200",
+    background:
+      "bg-slate-50",
+    value:
+      "text-slate-600",
+    dot:
+      "bg-slate-400",
+  },
+};
+
+const OperationalIndicatorCard = ({
+  title,
+  value,
+  description,
+  active,
+  tone,
+  onClick,
+}: OperationalIndicatorCardProps) => {
+  const classes =
+    operationalToneClasses[
+      tone
+    ];
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border p-4 text-left transition ${
+        active
+          ? "border-[#0066FF] bg-[#0066FF]/5 shadow-sm"
+          : `${classes.border} ${classes.background} hover:-translate-y-0.5 hover:shadow-sm`
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={`h-2.5 w-2.5 rounded-full ${classes.dot}`}
+        />
+
+        <p className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-500">
+          {title}
+        </p>
+      </div>
+
+      <p
+        className={`mt-3 text-2xl font-black ${classes.value}`}
+      >
+        {value}
+      </p>
+
+      <p className="mt-1 text-[9px] font-bold leading-4 text-slate-500">
+        {description}
+      </p>
+    </button>
+  );
+};
+type OperationalSummaryTone =
+  | "blue"
+  | "red"
+  | "violet"
+  | "cyan"
+  | "slate";
+
+interface OperationalSummaryCardProps {
+  label: string;
+  value: number;
+  description: string;
+  tone: OperationalSummaryTone;
+}
+
+const operationalSummaryToneClasses:
+  Record<
+    OperationalSummaryTone,
+    {
+      border: string;
+      background: string;
+      value: string;
+      dot: string;
+    }
+  > = {
+  blue: {
+    border:
+      "border-blue-200",
+    background:
+      "bg-blue-50/60",
+    value:
+      "text-blue-700",
+    dot:
+      "bg-blue-500",
+  },
+
+  red: {
+    border:
+      "border-red-200",
+    background:
+      "bg-red-50/60",
+    value:
+      "text-red-700",
+    dot:
+      "bg-red-500",
+  },
+
+  violet: {
+    border:
+      "border-violet-200",
+    background:
+      "bg-violet-50/60",
+    value:
+      "text-violet-700",
+    dot:
+      "bg-violet-500",
+  },
+
+  cyan: {
+    border:
+      "border-cyan-200",
+    background:
+      "bg-cyan-50/60",
+    value:
+      "text-cyan-700",
+    dot:
+      "bg-cyan-500",
+  },
+
+  slate: {
+    border:
+      "border-slate-200",
+    background:
+      "bg-slate-50",
+    value:
+      "text-slate-600",
+    dot:
+      "bg-slate-400",
+  },
+};
+
+const OperationalSummaryCard = ({
+  label,
+  value,
+  description,
+  tone,
+}: OperationalSummaryCardProps) => {
+  const classes =
+    operationalSummaryToneClasses[
+      tone
+    ];
+
+  return (
+    <div
+      className={`rounded-2xl border p-4 ${classes.border} ${classes.background}`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={`h-2.5 w-2.5 rounded-full ${classes.dot}`}
+        />
+
+        <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">
+          {label}
+        </p>
+      </div>
+
+      <p
+        className={`mt-3 text-2xl font-black ${classes.value}`}
+      >
+        {value}
+      </p>
+
+      <p className="mt-1 text-[9px] font-bold leading-4 text-slate-500">
+        {description}
+      </p>
+    </div>
+  );
+};
 export default OrdersManager;

@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -215,6 +216,11 @@ public class OrderService {
         );
 
         order.setStatus(
+                newStatus
+        );
+
+        registerStatusTimestamp(
+                order,
                 newStatus
         );
 
@@ -574,6 +580,11 @@ public class OrderService {
                 OrderStatus.PAGADO
         );
 
+        registerStatusTimestamp(
+                order,
+                OrderStatus.PAGADO
+        );
+
         orderRepository.save(
                 order
         );
@@ -719,6 +730,62 @@ public class OrderService {
     }
 
     // =========================================================
+// TRAZABILIDAD DE ESTADOS
+// =========================================================
+
+    private void registerStatusTimestamp(
+            Order order,
+            OrderStatus status
+    ) {
+        switch (status) {
+
+            case PAGADO -> {
+                if (order.getPaidAt() == null) {
+                    order.setPaidAt(
+                            LocalDateTime.now()
+                    );
+                }
+            }
+
+            case PREPARANDO -> {
+                if (order.getPreparingAt() == null) {
+                    order.setPreparingAt(
+                            LocalDateTime.now()
+                    );
+                }
+            }
+
+            case ENVIADO -> {
+                if (order.getShippedAt() == null) {
+                    order.setShippedAt(
+                            LocalDateTime.now()
+                    );
+                }
+            }
+
+            case ENTREGADO -> {
+                if (order.getDeliveredAt() == null) {
+                    order.setDeliveredAt(
+                            LocalDateTime.now()
+                    );
+                }
+            }
+
+            case CANCELADO -> {
+                if (order.getCancelledAt() == null) {
+                    order.setCancelledAt(
+                            LocalDateTime.now()
+                    );
+                }
+            }
+
+            case PENDIENTE -> {
+                // No registra marca temporal.
+            }
+        }
+    }
+
+    // =========================================================
     // CONVERSIÓN SEGURA A DTO
     // =========================================================
 
@@ -783,12 +850,22 @@ public class OrderService {
                 order.getEmail(),
                 order.getPhone(),
 
+                order.getUser() != null &&
+                        order.getUser().getStatus() != null
+                        ? order.getUser().getStatus().name()
+                        : "INVITADO",
+
                 order.getSubtotal(),
                 order.getShippingCost(),
                 order.getTotal(),
 
                 order.getStatus().name(),
                 order.getCreatedAt(),
+                order.getPaidAt(),
+                order.getPreparingAt(),
+                order.getShippedAt(),
+                order.getDeliveredAt(),
+                order.getCancelledAt(),
                 order.getPaymentId(),
 
                 order.getStreet(),

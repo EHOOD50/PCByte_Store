@@ -24,12 +24,52 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // =========================================================
+    // TRAZABILIDAD TEMPORAL
+    // =========================================================
+
+    /*
+     * Momento en que se creó originalmente la orden.
+     */
     @Column(
             name = "created_at",
             nullable = false,
             updatable = false
     )
     private LocalDateTime createdAt;
+
+    /*
+     * Momento en que el proveedor de pagos confirmó
+     * correctamente el pago de la orden.
+     */
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    /*
+     * Momento en que el administrador inició la preparación
+     * física del pedido.
+     */
+    @Column(name = "preparing_at")
+    private LocalDateTime preparingAt;
+
+    /*
+     * Momento en que el pedido fue entregado al transportista
+     * o marcado como enviado.
+     */
+    @Column(name = "shipped_at")
+    private LocalDateTime shippedAt;
+
+    /*
+     * Momento en que se confirmó la entrega final al cliente.
+     */
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    /*
+     * Momento en que la orden fue cancelada.
+     */
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
 
     /*
      * ID devuelto por Mercado Pago.
