@@ -38,6 +38,30 @@ public enum VerificationTokenErrorCode {
             "El enlace no puede utilizarse para esta operación."
     ),
 
+    /*
+     * Errores específicos para códigos numéricos
+     * utilizados durante el checkout invitado.
+     */
+    VERIFICATION_CODE_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "El código de verificación no es válido."
+    ),
+
+    VERIFICATION_CODE_EXPIRED(
+            HttpStatus.GONE,
+            "El código de verificación ha expirado."
+    ),
+
+    VERIFICATION_CODE_ALREADY_USED(
+            HttpStatus.CONFLICT,
+            "El código de verificación ya fue utilizado."
+    ),
+
+    VERIFICATION_CODE_INVALIDATED(
+            HttpStatus.CONFLICT,
+            "El código de verificación fue reemplazado por uno más reciente."
+    ),
+
     TOO_MANY_REQUESTS(
             HttpStatus.TOO_MANY_REQUESTS,
             "Se realizaron demasiadas solicitudes. Espera antes de intentarlo nuevamente."
@@ -59,6 +83,7 @@ public enum VerificationTokenErrorCode {
     );
 
     private final HttpStatus httpStatus;
+
     private final String defaultMessage;
 
     VerificationTokenErrorCode(

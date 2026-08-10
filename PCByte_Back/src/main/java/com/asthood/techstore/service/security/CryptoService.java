@@ -15,6 +15,14 @@ public interface CryptoService {
     String generateSecureToken();
 
     /*
+     * Genera un código numérico criptográficamente
+     * seguro con la cantidad de dígitos indicada.
+     */
+    String generateNumericCode(
+            int digits
+    );
+
+    /*
      * Calcula el hash SHA-256 de un valor y lo devuelve
      * como una cadena hexadecimal de 64 caracteres.
      */

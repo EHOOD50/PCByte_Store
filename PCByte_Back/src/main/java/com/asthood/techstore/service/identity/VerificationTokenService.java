@@ -1,6 +1,7 @@
 package com.asthood.techstore.service.identity;
 
 import com.asthood.techstore.config.VerificationProperties;
+import com.asthood.techstore.event.GuestVerificationCodeRequestedEvent;
 import com.asthood.techstore.exception.VerificationTokenErrorCode;
 import com.asthood.techstore.exception.VerificationTokenException;
 import com.asthood.techstore.model.User;
@@ -9,6 +10,7 @@ import com.asthood.techstore.model.VerificationToken;
 import com.asthood.techstore.repository.VerificationTokenRepository;
 import com.asthood.techstore.service.security.CryptoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,9 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class VerificationTokenService {
 
+    private static final int GUEST_CODE_DIGITS =
+            6;
+
     private final VerificationTokenRepository
             verificationTokenRepository;
 
@@ -30,6 +35,9 @@ public class VerificationTokenService {
             verificationProperties;
 
     private final Clock applicationClock;
+
+    private final ApplicationEventPublisher
+            eventPublisher;
 
     /*
      * Emite un nuevo token para una operación vinculada
@@ -43,9 +51,13 @@ public class VerificationTokenService {
             String requestIp
     ) {
         String normalizedEmail =
-                normalizeEmail(email);
+                normalizeEmail(
+                        email
+                );
 
-        validatePurpose(purpose);
+        validatePurpose(
+                purpose
+        );
 
         validateUserEmail(
                 user,
@@ -72,9 +84,10 @@ public class VerificationTokenService {
                         .generateSecureToken();
 
         String tokenHash =
-                cryptoService.sha256(
-                        rawToken
-                );
+                cryptoService
+                        .sha256(
+                                rawToken
+                        );
 
         LocalDateTime expiresAt =
                 calculateExpiration(
@@ -83,8 +96,11 @@ public class VerificationTokenService {
                 );
 
         VerificationToken token =
-                VerificationToken.builder()
-                        .user(user)
+                VerificationToken
+                        .builder()
+                        .user(
+                                user
+                        )
                         .email(
                                 normalizedEmail
                         )
@@ -107,9 +123,10 @@ public class VerificationTokenService {
                         )
                         .build();
 
-        verificationTokenRepository.save(
-                token
-        );
+        verificationTokenRepository
+                .save(
+                        token
+                );
 
         return new IssuedVerificationToken(
                 rawToken,
@@ -120,9 +137,12 @@ public class VerificationTokenService {
     }
 
     /*
-     * Emite un token sin usuario asociado.
+     * Emite un código numérico sin usuario asociado
+     * para verificar el correo durante el checkout invitado.
      *
-     * Está preparado para el futuro checkout invitado.
+     * PostgreSQL conserva solamente el hash SHA-256.
+     * El código original permanece únicamente en memoria
+     * y se entrega al listener encargado del correo.
      */
     @Transactional
     public IssuedVerificationToken issueGuestToken(
@@ -141,7 +161,9 @@ public class VerificationTokenService {
         }
 
         String normalizedEmail =
-                normalizeEmail(email);
+                normalizeEmail(
+                        email
+                );
 
         LocalDateTime now =
                 now();
@@ -158,9 +180,11 @@ public class VerificationTokenService {
                 now
         );
 
-        String rawToken =
+        String rawCode =
                 cryptoService
-                        .generateSecureToken();
+                        .generateNumericCode(
+                                GUEST_CODE_DIGITS
+                        );
 
         LocalDateTime expiresAt =
                 calculateExpiration(
@@ -169,8 +193,11 @@ public class VerificationTokenService {
                 );
 
         VerificationToken token =
-                VerificationToken.builder()
-                        .user(null)
+                VerificationToken
+                        .builder()
+                        .user(
+                                null
+                        )
                         .email(
                                 normalizedEmail
                         )
@@ -178,9 +205,10 @@ public class VerificationTokenService {
                                 purpose
                         )
                         .tokenHash(
-                                cryptoService.sha256(
-                                        rawToken
-                                )
+                                cryptoService
+                                        .sha256(
+                                                rawCode
+                                        )
                         )
                         .createdAt(
                                 now
@@ -195,12 +223,25 @@ public class VerificationTokenService {
                         )
                         .build();
 
-        verificationTokenRepository.save(
-                token
+        verificationTokenRepository
+                .save(
+                        token
+                );
+
+        /*
+         * El listener procesará este evento únicamente
+         * después de que la transacción finalice con éxito.
+         */
+        eventPublisher.publishEvent(
+                new GuestVerificationCodeRequestedEvent(
+                        normalizedEmail,
+                        rawCode,
+                        expiresAt
+                )
         );
 
         return new IssuedVerificationToken(
-                rawToken,
+                rawCode,
                 normalizedEmail,
                 purpose,
                 expiresAt
@@ -208,10 +249,7 @@ public class VerificationTokenService {
     }
 
     /*
-     * Valida y consume atómicamente un token.
-     *
-     * Cuando este método finaliza correctamente, el token
-     * queda marcado como utilizado y no puede reutilizarse.
+     * Valida y consume atómicamente un token largo.
      */
     @Transactional
     public VerificationToken consumeToken(
@@ -227,9 +265,10 @@ public class VerificationTokenService {
         );
 
         String tokenHash =
-                cryptoService.sha256(
-                        rawToken
-                );
+                cryptoService
+                        .sha256(
+                                rawToken
+                        );
 
         VerificationToken token =
                 verificationTokenRepository
@@ -253,9 +292,73 @@ public class VerificationTokenService {
                 now()
         );
 
-        return verificationTokenRepository.save(
-                token
+        return verificationTokenRepository
+                .save(
+                        token
+                );
+    }
+
+    /*
+     * Valida y consume un código numérico utilizado
+     * durante el checkout invitado.
+     *
+     * La búsqueda utiliza correo, propósito y hash
+     * para evitar que un código pueda utilizarse
+     * sobre el correo de otra persona.
+     */
+    @Transactional
+    public VerificationToken consumeGuestCheckoutCode(
+            String email,
+            String rawCode
+    ) {
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+        validateGuestCode(
+                rawCode
         );
+
+        String tokenHash =
+                cryptoService
+                        .sha256(
+                                rawCode.trim()
+                        );
+
+        VerificationToken token =
+                verificationTokenRepository
+                        .findFirstByEmailIgnoreCaseAndPurposeAndTokenHashAndUsedAtIsNullAndInvalidatedAtIsNullOrderByCreatedAtDesc(
+                                normalizedEmail,
+                                VerificationPurpose
+                                        .GUEST_CHECKOUT_EMAIL,
+                                tokenHash
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new VerificationTokenException(
+                                                VerificationTokenErrorCode
+                                                        .VERIFICATION_CODE_INVALID
+                                        )
+                        );
+
+        if (
+                token.isExpired()
+        ) {
+            throw new VerificationTokenException(
+                    VerificationTokenErrorCode
+                            .VERIFICATION_CODE_EXPIRED
+            );
+        }
+
+        token.setUsedAt(
+                now()
+        );
+
+        return verificationTokenRepository
+                .save(
+                        token
+                );
     }
 
     /*
@@ -268,7 +371,9 @@ public class VerificationTokenService {
             VerificationPurpose purpose
     ) {
         String normalizedEmail =
-                normalizeEmail(email);
+                normalizeEmail(
+                        email
+                );
 
         validatePurpose(
                 purpose
@@ -383,7 +488,9 @@ public class VerificationTokenService {
                 );
 
         LocalDateTime oneHourAgo =
-                now.minusHours(1);
+                now.minusHours(
+                        1
+                );
 
         long recentRequestCount =
                 verificationTokenRepository
@@ -409,9 +516,6 @@ public class VerificationTokenService {
     /*
      * Invalida tokens anteriores y fuerza el flush antes
      * de insertar uno nuevo.
-     *
-     * Esto respeta el índice único parcial que permite
-     * un solo token pendiente por correo y propósito.
      */
     private void invalidateActiveTokens(
             String email,
@@ -425,17 +529,17 @@ public class VerificationTokenService {
                                 purpose
                         );
 
-        if (activeTokens.isEmpty()) {
+        if (
+                activeTokens.isEmpty()
+        ) {
             return;
         }
 
         activeTokens.forEach(
                 token -> {
                     if (
-                            token.getInvalidatedAt()
-                                    == null &&
-                                    token.getUsedAt()
-                                            == null
+                            token.getInvalidatedAt() == null &&
+                                    token.getUsedAt() == null
                     ) {
                         token.setInvalidatedAt(
                                 invalidatedAt
@@ -444,15 +548,13 @@ public class VerificationTokenService {
                 }
         );
 
-        verificationTokenRepository.saveAll(
-                activeTokens
-        );
+        verificationTokenRepository
+                .saveAll(
+                        activeTokens
+                );
 
-        /*
-         * Garantiza que PostgreSQL vea los tokens anteriores
-         * como invalidados antes de insertar el nuevo.
-         */
-        verificationTokenRepository.flush();
+        verificationTokenRepository
+                .flush();
     }
 
     private LocalDateTime calculateExpiration(
@@ -460,6 +562,7 @@ public class VerificationTokenService {
             LocalDateTime createdAt
     ) {
         return switch (purpose) {
+
             case EMAIL_VERIFICATION ->
                     createdAt.plusHours(
                             verificationProperties
@@ -529,10 +632,30 @@ public class VerificationTokenService {
         }
     }
 
+    private void validateGuestCode(
+            String rawCode
+    ) {
+        if (
+                rawCode == null ||
+                        !rawCode
+                                .trim()
+                                .matches(
+                                        "\\d{6}"
+                                )
+        ) {
+            throw new VerificationTokenException(
+                    VerificationTokenErrorCode
+                            .VERIFICATION_CODE_INVALID
+            );
+        }
+    }
+
     private void validatePurpose(
             VerificationPurpose purpose
     ) {
-        if (purpose == null) {
+        if (
+                purpose == null
+        ) {
             throw new IllegalArgumentException(
                     "El propósito del token es obligatorio."
             );
@@ -568,9 +691,10 @@ public class VerificationTokenService {
             return null;
         }
 
-        return cryptoService.sha256(
-                value.trim()
-        );
+        return cryptoService
+                .sha256(
+                        value.trim()
+                );
     }
 
     private LocalDateTime now() {

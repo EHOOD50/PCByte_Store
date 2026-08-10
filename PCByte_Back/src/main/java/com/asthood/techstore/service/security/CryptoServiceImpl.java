@@ -8,6 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Locale;
 
 @Service
 public class CryptoServiceImpl
@@ -47,6 +48,41 @@ public class CryptoServiceImpl
                 .encodeToString(
                         randomBytes
                 );
+    }
+
+    @Override
+    public String generateNumericCode(
+            int digits
+    ) {
+
+        if (digits <= 0) {
+            throw new IllegalArgumentException(
+                    "La cantidad de dígitos debe ser mayor que cero."
+            );
+        }
+
+        int min =
+                (int) Math.pow(
+                        10,
+                        digits - 1
+                );
+
+        int max =
+                (int) Math.pow(
+                        10,
+                        digits
+                );
+
+        int value =
+                secureRandom.nextInt(
+                        max - min
+                ) + min;
+
+        return String.format(
+                Locale.ROOT,
+                "%0" + digits + "d",
+                value
+        );
     }
 
     @Override
@@ -125,11 +161,6 @@ public class CryptoServiceImpl
         } catch (
                 NoSuchAlgorithmException exception
         ) {
-            /*
-             * SHA-256 forma parte obligatoria de la JVM.
-             * Si no estuviera disponible, la aplicación
-             * no puede continuar de forma segura.
-             */
             throw new IllegalStateException(
                     "SHA-256 no está disponible en la JVM.",
                     exception

@@ -19,14 +19,34 @@ public interface VerificationTokenRepository
         > {
 
     /*
-     * Obtiene y bloquea un token durante su consumo.
+     * Obtiene y bloquea un token largo durante su consumo.
      *
-     * El bloqueo pesimista evita que dos solicitudes
-     * utilicen simultáneamente el mismo token.
+     * Se utiliza para verificaciones donde el token posee
+     * suficiente entropía para identificar por sí mismo
+     * la solicitud.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<VerificationToken>
     findByTokenHash(
+            String tokenHash
+    );
+
+    /*
+     * Obtiene y bloquea el código activo correspondiente
+     * a un correo y propósito determinados.
+     *
+     * Este método está pensado especialmente para códigos
+     * cortos como los utilizados durante el checkout invitado.
+     *
+     * El correo forma parte de la búsqueda porque un código
+     * numérico de 6 dígitos no debe actuar como identificador
+     * global por sí solo.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<VerificationToken>
+    findFirstByEmailIgnoreCaseAndPurposeAndTokenHashAndUsedAtIsNullAndInvalidatedAtIsNullOrderByCreatedAtDesc(
+            String email,
+            VerificationPurpose purpose,
             String tokenHash
     );
 

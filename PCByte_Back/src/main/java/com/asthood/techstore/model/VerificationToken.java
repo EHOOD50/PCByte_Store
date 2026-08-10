@@ -20,12 +20,10 @@ import java.time.LocalDateTime;
                 @Index(
                         name = "idx_verification_tokens_expires_at",
                         columnList = "expires_at"
-                )
-        },
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_verification_token_hash",
-                        columnNames = "token_hash"
+                ),
+                @Index(
+                        name = "idx_verification_tokens_token_hash",
+                        columnList = "token_hash"
                 )
         }
 )
@@ -80,15 +78,17 @@ public class VerificationToken {
     private VerificationPurpose purpose;
 
     /*
-     * SHA-256 del token original.
+     * SHA-256 del token o código original.
      *
-     * El token sin procesar solamente se envía al cliente y
-     * nunca se almacena en la base de datos.
+     * El valor sin procesar solamente se envía al cliente
+     * y nunca se almacena en la base de datos.
+     *
+     * No es UNIQUE globalmente porque los códigos numéricos
+     * de 6 dígitos pueden repetirse legítimamente con el tiempo.
      */
     @Column(
             name = "token_hash",
             nullable = false,
-            unique = true,
             length = 64
     )
     private String tokenHash;
@@ -146,35 +146,21 @@ public class VerificationToken {
         }
     }
 
-    /*
-     * Indica si el token ya superó su fecha de vencimiento.
-     */
     public boolean isExpired() {
         return LocalDateTime.now()
-                .isAfter(expiresAt);
+                .isAfter(
+                        expiresAt
+                );
     }
 
-    /*
-     * Indica si el token ya fue consumido.
-     */
     public boolean isUsed() {
         return usedAt != null;
     }
 
-    /*
-     * Indica si el token fue invalidado explícitamente.
-     */
     public boolean isInvalidated() {
         return invalidatedAt != null;
     }
 
-    /*
-     * Un token está activo solamente cuando:
-     *
-     * - no fue utilizado;
-     * - no fue invalidado;
-     * - no está vencido.
-     */
     public boolean isActive() {
         return !isUsed()
                 && !isInvalidated()
