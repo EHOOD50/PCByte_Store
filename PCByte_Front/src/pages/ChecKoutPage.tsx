@@ -66,9 +66,12 @@ interface CheckoutPageProps {
 }
 
 interface StoredCheckoutState {
+
   currentStep: CheckoutStep;
 
   informationData: GuestInformationData;
+
+  verifiedGuestEmail: string | null;
 
   addressData: CheckoutAddressData;
 
@@ -260,6 +263,11 @@ const readStoredCheckout =
         informationData:
           parsed.informationData,
 
+        verifiedGuestEmail:
+    typeof parsed.verifiedGuestEmail === "string"
+        ? parsed.verifiedGuestEmail
+        : null,
+          
         addressData:
           parsed.addressData,
 
@@ -292,6 +300,8 @@ const readStoredCheckout =
       return null;
     }
   };
+
+  
 
 const readPendingOrderId =
   (): number | null => {
@@ -546,6 +556,20 @@ export const CheckoutPage = ({
         initialGuestInformation
     );
 
+    const [
+  verifiedGuestEmail,
+  setVerifiedGuestEmail,
+] =
+useState<string | null>(
+  () =>
+    storedCheckout
+      ?.verifiedGuestEmail ??
+    null
+);
+
+
+
+
   const [
     addressData,
     setAddressData,
@@ -719,6 +743,7 @@ export const CheckoutPage = ({
       {
         currentStep,
         informationData,
+        verifiedGuestEmail,
         addressData,
         shippingMethod,
         selectedShippingQuote,
@@ -739,6 +764,7 @@ export const CheckoutPage = ({
   }, [
     currentStep,
     informationData,
+    verifiedGuestEmail,
     addressData,
     shippingMethod,
     selectedShippingQuote,
@@ -1210,6 +1236,8 @@ export const CheckoutPage = ({
 
             informationData,
 
+            verifiedGuestEmail,
+
             addressData,
 
             shippingMethod,
@@ -1385,6 +1413,16 @@ export const CheckoutPage = ({
                     goToStep(
                       "address"
                     )
+                  }
+                  requiresEmailVerification={
+                    !isAuthenticated
+                  }
+                  verifiedEmail={
+                    verifiedGuestEmail
+                  }
+
+                  onVerifiedEmailChange={
+                    setVerifiedGuestEmail
                   }
                 />
               )}

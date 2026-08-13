@@ -362,6 +362,40 @@ public class VerificationTokenService {
     }
 
     /*
+     * Comprueba si un correo fue verificado correctamente
+     * para un checkout invitado y si esa verificación
+     * continúa dentro del período de validez permitido.
+     *
+     * La vigencia se calcula desde used_at, es decir,
+     * desde el momento real en que el cliente demostró
+     * tener acceso al correo.
+     */
+    @Transactional(readOnly = true)
+    public boolean hasValidGuestCheckoutVerification(
+            String email
+    ) {
+        String normalizedEmail =
+                normalizeEmail(
+                        email
+                );
+
+        LocalDateTime validFrom =
+                now().minusMinutes(
+                        verificationProperties
+                                .getGuestCheckoutVerificationValidityMinutes()
+                );
+
+        return verificationTokenRepository
+                .existsByEmailIgnoreCaseAndPurposeAndUsedAtIsNotNullAndUsedAtAfter(
+                        normalizedEmail,
+                        VerificationPurpose
+                                .GUEST_CHECKOUT_EMAIL,
+                        validFrom
+                );
+    }
+
+
+    /*
      * Invalida explícitamente todos los tokens pendientes
      * de un correo y propósito.
      */

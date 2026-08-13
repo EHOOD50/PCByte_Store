@@ -85,7 +85,18 @@ public interface VerificationTokenRepository
             VerificationPurpose purpose,
             LocalDateTime createdAfter
     );
-
+    /*
+     * Comprueba si existe una verificación de correo
+     * consumida correctamente después de una fecha determinada.
+     *
+     * Se utiliza para autorizar el checkout invitado sin
+     * depender del estado de una cuenta registrada.
+     */
+    boolean existsByEmailIgnoreCaseAndPurposeAndUsedAtIsNotNullAndUsedAtAfter(
+            String email,
+            VerificationPurpose purpose,
+            LocalDateTime usedAfter
+    );
     /*
      * Obtiene tokens asociados a un usuario concreto.
      */

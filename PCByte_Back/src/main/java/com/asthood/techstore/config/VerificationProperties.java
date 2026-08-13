@@ -50,6 +50,18 @@ public class VerificationProperties {
     @Min(1)
     private long guestCheckoutExpirationMinutes = 10;
 
+
+    /*
+     * Tiempo durante el cual una verificación correcta
+     * del correo permanece válida para completar
+     * un checkout como invitado.
+     *
+     * Se calcula desde used_at, no desde created_at.
+     */
+    @Min(1)
+    private long guestCheckoutVerificationValidityMinutes = 60;
+
+
     /*
      * Vigencia de la autorización para convertir
      * inmediatamente una compra invitada en cuenta.

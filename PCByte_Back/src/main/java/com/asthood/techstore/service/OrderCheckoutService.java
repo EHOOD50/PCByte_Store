@@ -16,7 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.asthood.techstore.service.identity.VerificationTokenService;
+import org.springframework.security.core.Authentication;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,14 +33,17 @@ public class OrderCheckoutService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final ShippingRateService shippingRateService;
+    private final VerificationTokenService verificationTokenService;
 
     // =========================================================
+
     // PREPARAR ORDEN
     // =========================================================
 
     @Transactional
     public Order prepareOrder(
-            OrderRequestDTO orderRequest
+            OrderRequestDTO orderRequest,
+            Authentication authentication
     ) {
         validateOrderRequest(
                 orderRequest
@@ -69,6 +73,11 @@ public class OrderCheckoutService {
                                 .getPayer()
                                 .getEmail()
                 );
+        validateCheckoutIdentity(
+                orderRequest,
+                authentication,
+                email
+        );
 
         PreparedItems preparedItems =
                 prepareItems(
@@ -139,6 +148,9 @@ public class OrderCheckoutService {
 
         return newOrder;
     }
+
+
+
 
     // =========================================================
     // DESPACHO
@@ -903,6 +915,88 @@ public class OrderCheckoutService {
     // =========================================================
     // VALIDACIONES
     // =========================================================
+
+
+    private void validateCheckoutIdentity(
+            OrderRequestDTO orderRequest,
+            Authentication authentication,
+            String email
+    ) {
+        boolean authenticated =
+                authentication != null
+                        && authentication.isAuthenticated()
+                        && !"anonymousUser".equals(
+                        authentication.getPrincipal()
+                );
+
+        if (!authenticated) {
+            if (
+                    orderRequest.getUserId() != null
+            ) {
+                throw new IllegalArgumentException(
+                        "Una compra invitada no puede declarar un usuario autenticado."
+                );
+            }
+
+            boolean guestEmailVerified =
+                    verificationTokenService
+                            .hasValidGuestCheckoutVerification(
+                                    email
+                            );
+
+            if (!guestEmailVerified) {
+                throw new IllegalStateException(
+                        "Debes verificar tu correo antes de continuar con la compra."
+                );
+            }
+
+            return;
+        }
+
+        String authenticatedEmail =
+                authentication
+                        .getName()
+                        .trim()
+                        .toLowerCase(
+                                Locale.ROOT
+                        );
+
+        if (
+                !authenticatedEmail.equals(
+                        email
+                )
+        ) {
+            throw new IllegalArgumentException(
+                    "El correo de la compra no coincide con la cuenta autenticada."
+            );
+        }
+
+        User authenticatedUser =
+                userRepository
+                        .findByEmail(
+                                authenticatedEmail
+                        )
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "No fue posible identificar al usuario autenticado."
+                                        )
+                        );
+
+        if (
+                orderRequest.getUserId() == null
+                        || !authenticatedUser
+                        .getId()
+                        .equals(
+                                orderRequest
+                                        .getUserId()
+                        )
+        ) {
+            throw new IllegalArgumentException(
+                    "El usuario informado no coincide con la sesión autenticada."
+            );
+        }
+    }
 
     private void validateOrderRequest(
             OrderRequestDTO orderRequest

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -52,61 +53,37 @@ public class PaymentController {
     @PostMapping("/create_preference")
     public ResponseEntity<PaymentResponseDTO> create(
             @RequestBody
-            OrderRequestDTO orderRequest
+            OrderRequestDTO orderRequest,
+
+            Authentication authentication
     ) {
-        try {
-            Order preparedOrder =
-                    orderCheckoutService
-                            .prepareOrder(
-                                    orderRequest
-                            );
+        Order preparedOrder =
+                orderCheckoutService
+                        .prepareOrder(
+                                orderRequest,
+                                authentication
+                        );
 
-            String checkoutUrl =
-                    paymentService.createPreference(
-                            preparedOrder.getId()
-                    );
+        String checkoutUrl =
+                paymentService.createPreference(
+                        preparedOrder.getId()
+                );
 
-            log.info(
-                    "Preferencia creada para la orden #{} por un total de ${}",
-                    preparedOrder.getId(),
-                    preparedOrder.getTotal()
-            );
+        log.info(
+                "Preferencia creada para la orden #{} por un total de ${}",
+                preparedOrder.getId(),
+                preparedOrder.getTotal()
+        );
 
-            PaymentResponseDTO response =
-                    new PaymentResponseDTO(
-                            checkoutUrl,
-                            preparedOrder.getId()
-                    );
+        PaymentResponseDTO response =
+                new PaymentResponseDTO(
+                        checkoutUrl,
+                        preparedOrder.getId()
+                );
 
-            return ResponseEntity.ok(
-                    response
-            );
-
-        } catch (
-                IllegalArgumentException |
-                IllegalStateException exception
-        ) {
-            log.warn(
-                    "Solicitud de pago rechazada: {}",
-                    exception.getMessage()
-            );
-
-            return ResponseEntity
-                    .badRequest()
-                    .build();
-
-        } catch (
-                Exception exception
-        ) {
-            log.error(
-                    "Error crítico al preparar la orden o crear la preferencia de pago.",
-                    exception
-            );
-
-            return ResponseEntity
-                    .internalServerError()
-                    .build();
-        }
+        return ResponseEntity.ok(
+                response
+        );
     }
 
     // =========================================================

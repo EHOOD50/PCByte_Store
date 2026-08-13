@@ -1,3 +1,4 @@
+
 import api from "./axios";
 
 import type {
@@ -12,6 +13,11 @@ export interface EmailVerificationResponse {
   verified: boolean;
   message: string;
   status: UserStatus | null;
+}
+
+export interface GuestVerificationCodeResponse {
+  verified: boolean;
+  message: string;
 }
 
 export async function resendVerificationEmail(
@@ -51,6 +57,71 @@ export async function verifyEmailToken(
           token:
             normalizedToken,
         },
+      }
+    );
+
+  return response.data;
+}
+
+export async function sendGuestVerificationCode(
+  email: string
+): Promise<GuestVerificationCodeResponse> {
+  const normalizedEmail =
+    email
+      .trim()
+      .toLowerCase();
+
+  if (!normalizedEmail) {
+    throw new Error(
+      "El correo electrónico es obligatorio."
+    );
+  }
+
+  const response =
+    await api.post<GuestVerificationCodeResponse>(
+      "/verification/send-code",
+      {
+        email:
+          normalizedEmail,
+      }
+    );
+
+  return response.data;
+}
+
+export async function verifyGuestVerificationCode(
+  email: string,
+  code: string
+): Promise<GuestVerificationCodeResponse> {
+  const normalizedEmail =
+    email
+      .trim()
+      .toLowerCase();
+
+  const normalizedCode =
+    code.trim();
+
+  if (!normalizedEmail) {
+    throw new Error(
+      "El correo electrónico es obligatorio."
+    );
+  }
+
+  if (!normalizedCode) {
+    throw new Error(
+      "El código de verificación es obligatorio."
+    );
+  }
+
+  const response =
+    await api.post<GuestVerificationCodeResponse>(
+      "/verification/verify-code",
+      {
+        email:
+          normalizedEmail,
+
+        code:
+          normalizedCode,
       }
     );
 
