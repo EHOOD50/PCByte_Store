@@ -4,6 +4,7 @@ import {
   Loader2,
   MapPin,
   Plus,
+  Star,
 } from "lucide-react";
 
 import type { Address } from "../../types/types";
@@ -12,8 +13,19 @@ interface SavedAddressesStepProps {
   addresses: Address[];
   loading: boolean;
   error: string | null;
+
   selectedAddressId: number | null;
-  onSelectAddress: (addressId: number) => void;
+
+  settingDefaultAddressId: number | null;
+
+  onSelectAddress: (
+    addressId: number
+  ) => void;
+
+  onSetDefaultAddress: (
+    addressId: number
+  ) => void;
+
   onUseNewAddress: () => void;
   onBack: () => void;
   onContinue: () => void;
@@ -24,7 +36,9 @@ export const SavedAddressesStep = ({
   loading,
   error,
   selectedAddressId,
+  settingDefaultAddressId,
   onSelectAddress,
+  onSetDefaultAddress,
   onUseNewAddress,
   onBack,
   onContinue,
@@ -82,82 +96,123 @@ export const SavedAddressesStep = ({
                 selectedAddressId ===
                 address.id;
 
+              const settingAsDefault =
+                settingDefaultAddressId ===
+                address.id;
+
               return (
-                <button
+                <div
                   key={address.id}
-                  type="button"
-                  onClick={() =>
-                    onSelectAddress(
-                      address.id
-                    )
-                  }
-                  className={`rounded-[1.5rem] border-2 p-5 text-left transition ${
+                  className={`rounded-[1.5rem] border-2 p-5 transition ${
                     selected
                       ? "border-[#0066FF] bg-[#f7faff] shadow-[0_12px_35px_rgba(0,102,255,0.10)]"
                       : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-                        selected
-                          ? "bg-[#0066FF]/10 text-[#0066FF]"
-                          : "bg-slate-100 text-slate-400"
-                      }`}
-                    >
-                      <MapPin size={20} />
-                    </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSelectAddress(
+                        address.id
+                      )
+                    }
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                          selected
+                            ? "bg-[#0066FF]/10 text-[#0066FF]"
+                            : "bg-slate-100 text-slate-400"
+                        }`}
+                      >
+                        <MapPin size={20} />
+                      </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-black text-slate-900">
-                          {address.label ||
-                            "Dirección"}
-                        </h3>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-black text-slate-900">
+                            {address.label ||
+                              "Dirección"}
+                          </h3>
 
-                        {address.defaultAddress && (
-                          <span className="rounded-full bg-[#97cf00]/15 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-[#5f8200]">
-                            Predeterminada
-                          </span>
+                          {address.defaultAddress && (
+                            <span className="rounded-full bg-[#97cf00]/15 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-[#5f8200]">
+                              Predeterminada
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="mt-3 text-sm font-bold leading-6 text-slate-700">
+                          {address.street}{" "}
+                          {address.number}
+                        </p>
+
+                        {address.apartment && (
+                          <p className="text-xs leading-5 text-slate-500">
+                            {address.apartment}
+                          </p>
+                        )}
+
+                        <p className="text-xs leading-5 text-slate-500">
+                          {address.city},{" "}
+                          {address.region}
+                        </p>
+
+                        {address.extraInfo && (
+                          <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                            {address.extraInfo}
+                          </p>
                         )}
                       </div>
 
-                      <p className="mt-3 text-sm font-bold leading-6 text-slate-700">
-                        {address.street}{" "}
-                        {address.number}
-                      </p>
-
-                      {address.apartment && (
-                        <p className="text-xs leading-5 text-slate-500">
-                          {address.apartment}
-                        </p>
-                      )}
-
-                      <p className="text-xs leading-5 text-slate-500">
-                        {address.city},{" "}
-                        {address.region}
-                      </p>
-
-                      {address.extraInfo && (
-                        <p className="mt-2 text-[11px] leading-5 text-slate-400">
-                          {address.extraInfo}
-                        </p>
-                      )}
+                      <div
+                        className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                          selected
+                            ? "border-[#0066FF]"
+                            : "border-slate-300"
+                        }`}
+                      >
+                        {selected && (
+                          <div className="h-2.5 w-2.5 rounded-full bg-[#0066FF]" />
+                        )}
+                      </div>
                     </div>
+                  </button>
 
-                    <div
-                      className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                        selected
-                          ? "border-[#0066FF]"
-                          : "border-slate-300"
-                      }`}
+                  {!address.defaultAddress && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onSetDefaultAddress(
+                          address.id
+                        )
+                      }
+                      disabled={
+                        settingDefaultAddressId !==
+                        null
+                      }
+                      className="mt-4 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-[#97cf00]/30 bg-[#97cf00]/5 px-4 text-[9px] font-black uppercase tracking-wider text-[#5f8200] transition hover:bg-[#97cf00]/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {selected && (
-                        <div className="h-2.5 w-2.5 rounded-full bg-[#0066FF]" />
+                      {settingAsDefault ? (
+                        <>
+                          <Loader2
+                            size={14}
+                            className="animate-spin"
+                          />
+
+                          Actualizando...
+                        </>
+                      ) : (
+                        <>
+                          <Star size={14} />
+
+                          Establecer como predeterminada
+                        </>
                       )}
-                    </div>
-                  </div>
-                </button>
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -188,6 +243,7 @@ export const SavedAddressesStep = ({
         className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-[#0066FF]/20 bg-[#0066FF]/5 px-6 text-xs font-black uppercase text-[#0066FF] transition hover:border-[#0066FF]/40 hover:bg-[#0066FF]/10"
       >
         <Plus size={17} />
+
         Agregar nueva dirección
       </button>
 
@@ -198,6 +254,7 @@ export const SavedAddressesStep = ({
           className="flex min-h-[50px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-7 text-xs font-black uppercase text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
         >
           <ArrowLeft size={17} />
+
           Volver a datos
         </button>
 

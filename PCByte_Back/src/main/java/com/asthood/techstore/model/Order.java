@@ -71,6 +71,14 @@ public class Order {
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
 
+
+    @Enumerated(EnumType.STRING)
+    @Column(
+            name = "payment_provider",
+            length = 30
+    )
+    private PaymentProvider paymentProvider;
+
     /*
      * ID devuelto por Mercado Pago.
      * Se utiliza para conciliación y control de idempotencia.

@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from "react";
-import { ArrowUpDown } from "lucide-react";
+import React, {
+  useEffect,
+  useRef,
+} from "react";import { ArrowUpDown } from "lucide-react";
 
 import type { Product } from "../../types/types";
 import ProductCard from "../ProductCard";
@@ -38,13 +40,39 @@ export default function ProductCatalog({
   onAddToCart,
 }: ProductCatalogProps) {
   const catalogRef = useRef<HTMLElement | null>(null);
+  
 
-  useEffect(() => {
-    catalogRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }, [currentPage]);
+  
+
+  const previousPageRef =
+  useRef(currentPage);
+
+useEffect(() => {
+  /*
+   * Durante el montaje inicial no hacemos scroll.
+   *
+   * React StrictMode puede ejecutar los efectos
+   * más de una vez en desarrollo, por lo que
+   * comparar la página anterior es más seguro
+   * que utilizar un simple indicador firstRender.
+   */
+  if (
+    previousPageRef.current ===
+    currentPage
+  ) {
+    return;
+  }
+
+  previousPageRef.current =
+    currentPage;
+
+  catalogRef.current?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}, [
+  currentPage,
+]);
 
   const headerTitle =
     searchTerm.trim() !== ""
@@ -63,7 +91,7 @@ export default function ProductCatalog({
   return (
     <section
       ref={catalogRef}
-      className="mt-3 scroll-mt-24"
+      className="mt-3 scroll-mt-[106px]"
     >
       <div className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>

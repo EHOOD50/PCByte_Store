@@ -127,6 +127,17 @@ type StatusFilter =
   | "DELIVERED_TODAY"
   | "DELAYED_PREPARATION";
 
+type CustomerFilter =
+  | "ALL"
+  | "REGISTRADO"
+  | "INVITADO";
+
+type OrderSort =
+  | "PRIORITY"
+  | "ORDER_ASC"
+  | "ORDER_DESC";
+
+
 type NotificationType =
   | "success"
   | "error";
@@ -392,6 +403,9 @@ const toDrawerData = (
     phone:
       order.phone,
 
+      userStatus:
+  order.userStatus,
+
     street:
       order.street,
 
@@ -561,6 +575,22 @@ const OrdersManager = ({
       "ALL"
     );
 
+    const [
+  customerFilter,
+  setCustomerFilter,
+] =
+  useState<CustomerFilter>(
+    "ALL"
+  );
+
+const [
+  orderSort,
+  setOrderSort,
+] =
+  useState<OrderSort>(
+    "PRIORITY"
+  );
+
   const [
     currentPage,
     setCurrentPage,
@@ -653,11 +683,15 @@ const OrdersManager = ({
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    searchTerm,
-    filterStatus,
-  ]);
+  setCurrentPage(1);
+}, [
+  searchTerm,
+  filterStatus,
+  customerFilter,
+  orderSort,
+]);
+
+
 
   useEffect(() => {
     if (
@@ -740,73 +774,118 @@ const OrdersManager = ({
   ]);
 
   const filteredOrders =
-    useMemo(
-      () => {
-        const term =
-          searchTerm
-            .trim()
-            .toLowerCase();
+  useMemo(
+    () => {
+      const term =
+        searchTerm
+          .trim()
+          .toLowerCase();
 
-        return orders.filter(
-          (order) => {
-            const status =
-              getNormalizedStatus(
-                order.status
+      return orders.filter(
+        (order) => {
+          const status =
+            getNormalizedStatus(
+              order.status
+            );
+
+          /*
+           * FILTRO POR ESTADO
+           */
+          let matchesStatus =
+            true;
+
+          if (
+            filterStatus ===
+            "DELIVERED_TODAY"
+          ) {
+            matchesStatus =
+              status ===
+                "ENTREGADO" &&
+              isSameLocalDay(
+                order.deliveredAt
               );
+          } else if (
+            filterStatus ===
+            "DELAYED_PREPARATION"
+          ) {
+            if (
+              status !==
+                "PREPARANDO" ||
+              !order.preparingAt
+            ) {
+              matchesStatus =
+                false;
+            } else {
+              const preparingTime =
+                new Date(
+                  order.preparingAt
+                ).getTime();
 
-            let matchesStatus = true;
+              const elapsedHours =
+                Number.isNaN(
+                  preparingTime
+                )
+                  ? 0
+                  : (
+                      Date.now() -
+                      preparingTime
+                    ) /
+                    3_600_000;
 
-if (filterStatus === "DELIVERED_TODAY") {
-  matchesStatus =
-    status === "ENTREGADO" &&
-    isSameLocalDay(
-      order.deliveredAt
-    );
-} else if (
-  filterStatus ===
-  "DELAYED_PREPARATION"
-) {
-  if (
-    status !== "PREPARANDO" ||
-    !order.preparingAt
-  ) {
-    matchesStatus = false;
-  } else {
-    const preparingTime =
-      new Date(
-        order.preparingAt
-      ).getTime();
-
-    const elapsedHours =
-      Number.isNaN(
-        preparingTime
-      )
-        ? 0
-        : (
-            Date.now() -
-            preparingTime
-          ) /
-          3_600_000;
-
-    matchesStatus =
-      elapsedHours >= 4;
-  }
-} else if (
-  filterStatus !== "ALL"
-) {
-  matchesStatus =
-    status === filterStatus;
-}
-
-if (!matchesStatus) {
-  return false;
-}
-
-            if (!term) {
-              return true;
+              matchesStatus =
+                elapsedHours >= 4;
             }
+          } else if (
+            filterStatus !==
+            "ALL"
+          ) {
+            matchesStatus =
+              status ===
+              filterStatus;
+          }
 
-            const searchableValues = [
+          if (!matchesStatus) {
+            return false;
+          }
+
+          /*
+           * FILTRO POR TIPO DE CLIENTE
+           */
+          const matchesCustomer =
+            customerFilter ===
+              "ALL" ||
+            (
+              customerFilter ===
+                "REGISTRADO" &&
+              order.userStatus ===
+                "REGISTRADO"
+            ) ||
+            (
+              customerFilter ===
+                "INVITADO" &&
+              order.userStatus !==
+                "REGISTRADO"
+            );
+
+          if (
+            !matchesCustomer
+          ) {
+            return false;
+          }
+
+          /*
+           * SIN TEXTO DE BÚSQUEDA:
+           * si ya pasó los filtros anteriores,
+           * el pedido se incluye.
+           */
+          if (!term) {
+            return true;
+          }
+
+          /*
+           * BÚSQUEDA GENERAL
+           */
+          const searchableValues = [
             order.id,
             `#${order.id}`,
             order.paymentId,
@@ -822,32 +901,73 @@ if (!matchesStatus) {
             order.extraInfo,
             order.shippingLabel,
             order.shippingCarrier,
-            ];
+          ];
 
-            return searchableValues.some(
-              (value) =>
-                String(
-                  value ?? ""
+          return searchableValues.some(
+            (value) =>
+              String(
+                value ?? ""
+              )
+                .toLowerCase()
+                .includes(
+                  term
                 )
-                  .toLowerCase()
-                  .includes(term)
-            );
-          }
-        );
-      },
-      [
-        orders,
-        searchTerm,
-        filterStatus,
-      ]
-    );
+          );
+        }
+      );
+    },
+    [
+      orders,
+      searchTerm,
+      filterStatus,
+      customerFilter,
+    ]
+  );
 
     const prioritizedOrders =
   useMemo(
     () => {
-      return [
+      const sortedOrders = [
         ...filteredOrders,
-      ].sort(
+      ];
+
+      if (
+        orderSort ===
+        "ORDER_ASC"
+      ) {
+        return sortedOrders.sort(
+          (
+            firstOrder,
+            secondOrder
+          ) =>
+            firstOrder.id -
+            secondOrder.id
+        );
+      }
+
+      if (
+        orderSort ===
+        "ORDER_DESC"
+      ) {
+        return sortedOrders.sort(
+          (
+            firstOrder,
+            secondOrder
+          ) =>
+            secondOrder.id -
+            firstOrder.id
+        );
+      }
+
+      /*
+       * Orden operativo por defecto.
+       *
+       * Primero se considera la prioridad
+       * calculada del pedido y después
+       * la antigüedad dentro de esa misma
+       * prioridad.
+       */
+      return sortedOrders.sort(
         (
           firstOrder,
           secondOrder
@@ -856,17 +976,17 @@ if (!matchesStatus) {
             getOrderPriority(
               firstOrder.status,
               firstOrder.paidAt,
-              firstOrder.preparingAt
+              firstOrder.preparingAt,
+              firstOrder.shippedAt
             );
 
           const secondPriority =
             getOrderPriority(
               secondOrder.status,
               secondOrder.paidAt,
-              secondOrder.preparingAt
+              secondOrder.preparingAt,
+              secondOrder.shippedAt
             );
-
-            
 
           const priorityDifference =
             PRIORITY_WEIGHT[
@@ -882,11 +1002,6 @@ if (!matchesStatus) {
             return priorityDifference;
           }
 
-          /*
-           * Cuando dos pedidos tienen la misma prioridad,
-           * el más antiguo aparece primero para respetar
-           * el orden operacional.
-           */
           const firstReferenceDate =
             getPriorityReferenceDate(
               firstOrder
@@ -904,7 +1019,10 @@ if (!matchesStatus) {
         }
       );
     },
-    [filteredOrders]
+    [
+      filteredOrders,
+      orderSort,
+    ]
   );
 
   const statusCounts =
@@ -1234,85 +1352,143 @@ if (!matchesStatus) {
 </p>
             </div>
 
-            <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
-              <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 xl:min-w-[320px]">
-                <Search
-                  size={17}
-                  className="shrink-0 text-slate-400"
-                />
+            <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-[320px_auto_auto_auto_auto]">
+  {/* BÚSQUEDA */}
+  <div className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4">
+    <Search
+      size={17}
+      className="shrink-0 text-slate-400"
+    />
 
-                <input
-                  type="search"
-                  value={
-                    searchTerm
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSearchTerm(
-                      event.target
-                        .value
-                    )
-                  }
-                  placeholder="Pedido, cliente, email o pago..."
-                  className="w-full bg-transparent py-3.5 text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400"
-                />
-              </div>
+    <input
+      type="search"
+      value={
+        searchTerm
+      }
+      onChange={(
+        event
+      ) =>
+        setSearchTerm(
+          event.target.value
+        )
+      }
+      placeholder="Pedido, cliente, email o pago..."
+      className="w-full bg-transparent py-3.5 text-sm font-bold text-slate-800 outline-none placeholder:text-slate-400"
+    />
+  </div>
 
-              <select
-                value={
-                  filterStatus
-                }
-                onChange={(
-                  event
-                ) =>
-                  setFilterStatus(
-                    event.target
-                      .value as StatusFilter
-                  )
-                }
-                className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[10px] font-black uppercase tracking-wider text-slate-700 outline-none focus:ring-2 focus:ring-[#0066FF]/20"
-              >
-                <option value="ALL">
-                  Todos los estados
-                </option>
+  {/* ESTADO DEL PEDIDO */}
+  <select
+    value={
+      filterStatus
+    }
+    onChange={(
+      event
+    ) =>
+      setFilterStatus(
+        event.target
+          .value as StatusFilter
+      )
+    }
+    className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[10px] font-black uppercase tracking-wider text-slate-700 outline-none focus:ring-2 focus:ring-[#0066FF]/20"
+  >
+    <option value="ALL">
+      Todos los estados
+    </option>
 
-                {ORDER_STATUSES.map(
-                  (status) => (
-                    <option
-                      key={status}
-                      value={status}
-                    >
-                      {status}
-                    </option>
-                  )
-                )}
-              </select>
+    {ORDER_STATUSES.map(
+      (status) => (
+        <option
+          key={status}
+          value={status}
+        >
+          {status}
+        </option>
+      )
+    )}
+  </select>
 
-              <button
-                type="button"
-                onClick={() =>
-                  void fetchOrders(
-                    true
-                  )
-                }
-                disabled={
-                  refreshing
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0066FF] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw
-                  size={15}
-                  className={
-                    refreshing
-                      ? "animate-spin"
-                      : ""
-                  }
-                />
+  {/* TIPO DE CLIENTE */}
+  <select
+    value={
+      customerFilter
+    }
+    onChange={(
+      event
+    ) =>
+      setCustomerFilter(
+        event.target
+          .value as CustomerFilter
+      )
+    }
+    className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[10px] font-black uppercase tracking-wider text-slate-700 outline-none focus:ring-2 focus:ring-[#0066FF]/20"
+  >
+    <option value="ALL">
+      Todos los clientes
+    </option>
 
-                Actualizar
-              </button>
-            </div>
+    <option value="REGISTRADO">
+      Registrados
+    </option>
+
+    <option value="INVITADO">
+      Invitados
+    </option>
+  </select>
+
+  {/* ORDENAMIENTO */}
+  <select
+    value={
+      orderSort
+    }
+    onChange={(
+      event
+    ) =>
+      setOrderSort(
+        event.target
+          .value as OrderSort
+      )
+    }
+    className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-[10px] font-black uppercase tracking-wider text-slate-700 outline-none focus:ring-2 focus:ring-[#0066FF]/20"
+  >
+    <option value="PRIORITY">
+      Prioridad operativa
+    </option>
+
+    <option value="ORDER_ASC">
+      Pedido: menor a mayor
+    </option>
+
+    <option value="ORDER_DESC">
+      Pedido: mayor a menor
+    </option>
+  </select>
+
+  {/* ACTUALIZAR */}
+  <button
+    type="button"
+    onClick={() =>
+      void fetchOrders(
+        true
+      )
+    }
+    disabled={
+      refreshing
+    }
+    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-[10px] font-black uppercase tracking-wider text-white transition hover:bg-[#0066FF] disabled:cursor-not-allowed disabled:opacity-60"
+  >
+    <RefreshCw
+      size={15}
+      className={
+        refreshing
+          ? "animate-spin"
+          : ""
+      }
+    />
+
+    Actualizar
+  </button>
+</div>
           </div>
         </section>
 
@@ -1622,12 +1798,12 @@ if (!matchesStatus) {
 
                                   <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[7px] font-black uppercase text-slate-500">
                                     {order.userStatus === "REGISTRADO"
-  ? "Registrado"
-  : order.userStatus === "PENDIENTE_VERIFICACION"
-    ? "Pendiente de verificación"
-    : order.userStatus === "BLOQUEADO"
-      ? "Bloqueado"
-      : "Invitado"}
+                                    ? "Registrado"
+                                    : order.userStatus === "EMAIL_PENDIENTE_VERIFICACION"
+                                      ? "Pendiente de verificación"
+                                      : order.userStatus === "BLOQUEADO"
+                                        ? "Bloqueado"
+                                        : "Invitado"}
                                   </span>
                                 </div>
                               </div>

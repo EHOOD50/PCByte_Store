@@ -57,11 +57,13 @@ export interface OrderDrawerData {
     | null;
 
   userId?: number | null;
-
+  
   customerEmail?: string;
   email?: string;
   fullName?: string;
   phone?: string;
+
+  userStatus?: string | null;
 
   street?: string;
   number?: string;
@@ -421,11 +423,15 @@ const OrderDetailsDrawer = ({
     );
 
   const customerType =
-    readonly ||
-    order.userId ||
-    order.user?.id
-      ? "Cliente registrado"
-      : "Compra como invitado";
+  order.userStatus === "REGISTRADO"
+    ? "Cliente registrado"
+    : order.userStatus ===
+        "EMAIL_PENDIENTE_VERIFICACION"
+      ? "Pendiente de verificación"
+      : order.userStatus ===
+          "BLOQUEADO"
+        ? "Cliente bloqueado"
+        : "Compra como invitado";
 
   const addressLine = [
     order.street,

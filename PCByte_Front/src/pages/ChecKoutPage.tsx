@@ -73,6 +73,8 @@ interface StoredCheckoutState {
 
   verifiedGuestEmail: string | null;
 
+  selectedAddressId: number | null;
+
   addressData: CheckoutAddressData;
 
   shippingMethod: ShippingMethod | null;
@@ -80,6 +82,8 @@ interface StoredCheckoutState {
   selectedShippingQuote: ShippingQuote | null;
 
   paymentMethod: PaymentMethod | null;
+
+  
 
   /*
    * Representa los productos y cantidades que tenía
@@ -114,6 +118,8 @@ interface PaymentPreferenceResponse {
 
   orderId?: number;
 }
+const CHECKOUT_RESUME_KEY =
+  "pcbyte_checkout_resume_v1";
 
 const CHECKOUT_SESSION_KEY =
   "pcbyte_checkout_session_v1";
@@ -260,6 +266,12 @@ const readStoredCheckout =
         currentStep:
           parsed.currentStep,
 
+        selectedAddressId:
+  typeof parsed.selectedAddressId === "number"
+    ? parsed.selectedAddressId
+    : null,
+
+
         informationData:
           parsed.informationData,
 
@@ -393,6 +405,11 @@ const createInitialCheckoutContext = (
 
   const pendingOrderId =
     readPendingOrderId();
+    
+  const shouldResumeCheckout =
+  sessionStorage.getItem(
+    CHECKOUT_RESUME_KEY
+  ) === "true";
 
   /*
    * Una sesión anterior solamente puede recuperarse
@@ -403,10 +420,11 @@ const createInitialCheckoutContext = (
    * una compra nueva y se elimina cualquier sesión antigua.
    */
   const canRestoreCheckout =
-    pendingOrderId !==
-      null ||
-    paymentReturn !==
-      null;
+  pendingOrderId !==
+    null ||
+  paymentReturn !==
+    null ||
+  shouldResumeCheckout;
 
   if (!canRestoreCheckout) {
     sessionStorage.removeItem(
@@ -527,6 +545,18 @@ export const CheckoutPage = ({
       if (!storedCheckout) {
         return "information";
       }
+      
+      if (
+  sessionStorage.getItem(
+    CHECKOUT_RESUME_KEY
+  ) === "true"
+) {
+  sessionStorage.removeItem(
+    CHECKOUT_RESUME_KEY
+  );
+
+  return "address";
+}
 
       /*
        * Si se agregaron o modificaron productos en una
@@ -567,8 +597,18 @@ useState<string | null>(
     null
 );
 
+const [
+  selectedAddressId,
+  setSelectedAddressId,
+] =
+  useState<number | null>(
+    () =>
+      storedCheckout
+        ?.selectedAddressId ??
+      null
+  );
 
-
+  
 
   const [
     addressData,
@@ -624,25 +664,25 @@ useState<string | null>(
     );
 
   const [
-    paymentMethod,
-    setPaymentMethod,
-  ] =
-    useState<PaymentMethod | null>(
-      () => {
-        if (
-          initialCheckoutContext
-            .cartChanged
-        ) {
-          return null;
-        }
-
-        return (
-          storedCheckout
-            ?.paymentMethod ??
-          null
-        );
+  paymentMethod,
+  setPaymentMethod,
+] =
+  useState<PaymentMethod | null>(
+    () => {
+      if (
+        initialCheckoutContext
+          .cartChanged
+      ) {
+        return "mercado_pago";
       }
-    );
+
+      return (
+        storedCheckout
+          ?.paymentMethod ??
+        "mercado_pago"
+      );
+    }
+  );
 
   const [
     isLoading,
@@ -744,6 +784,7 @@ useState<string | null>(
         currentStep,
         informationData,
         verifiedGuestEmail,
+        selectedAddressId,
         addressData,
         shippingMethod,
         selectedShippingQuote,
@@ -765,6 +806,7 @@ useState<string | null>(
     currentStep,
     informationData,
     verifiedGuestEmail,
+    selectedAddressId,
     addressData,
     shippingMethod,
     selectedShippingQuote,
@@ -1012,11 +1054,16 @@ useState<string | null>(
   };
 
   const handleAddMoreProducts =
-    () => {
-      navigate(
-        "/productos"
-      );
-    };
+  () => {
+    sessionStorage.setItem(
+      CHECKOUT_RESUME_KEY,
+      "true"
+    );
+
+    navigate(
+      "/productos"
+    );
+  };
 
   const handlePayment =
     async () => {
@@ -1238,6 +1285,8 @@ useState<string | null>(
 
             verifiedGuestEmail,
 
+            selectedAddressId,
+
             addressData,
 
             shippingMethod,
@@ -1432,6 +1481,13 @@ useState<string | null>(
                 <AddressSelector
                   data={
                     addressData
+                  }
+                  selectedAddressId={
+                    selectedAddressId
+                  }
+
+                  onSelectedAddressIdChange={
+                    setSelectedAddressId
                   }
                   onChange={
                     handleAddressChange

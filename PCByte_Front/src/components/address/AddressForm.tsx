@@ -40,6 +40,7 @@ interface AddressFormProps {
   ) => void;
 
   readOnly?: boolean;
+  checkoutMode?: boolean;
 }
 
 const complementOptions = [
@@ -75,8 +76,12 @@ export default function AddressForm({
   onRegionChange,
   onComplementTypeChange,
   onDefaultChange,
-  readOnly = false,
+readOnly = false,
+checkoutMode = false,
 }: AddressFormProps) {
+
+
+
   const availableCommunes =
     useMemo(() => {
       const selectedRegion =
@@ -106,6 +111,9 @@ export default function AddressForm({
 
   return (
     <div>
+      {!checkoutMode && (
+  <div className="rounded-2xl border border-[#97cf00]/25 bg-[#97cf00]/5 p-4">
+
       {/* IDENTIFICACIÓN */}
       <div className="rounded-2xl border border-[#97cf00]/25 bg-[#97cf00]/5 p-4">
         <div className="flex items-start gap-3">
@@ -137,7 +145,8 @@ export default function AddressForm({
           />
         </div>
       </div>
-
+        </div>
+)}
       {/* CALLE Y NÚMERO */}
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[1.5fr_0.5fr]">
         <InputField
@@ -301,7 +310,9 @@ export default function AddressForm({
       </div>
 
       {/* PREDETERMINADA */}
+      {!checkoutMode && (
       <label
+
         className={`mt-4 flex items-start gap-3 rounded-2xl border p-4 transition ${
           data.defaultAddress
             ? "border-[#97cf00]/50 bg-[#97cf00]/10"
@@ -345,6 +356,7 @@ export default function AddressForm({
           </p>
         </div>
       </label>
+      )}
     </div>
   );
 }

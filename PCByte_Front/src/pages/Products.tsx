@@ -60,8 +60,7 @@ export default function Products({
       </div>
 
       {/* CONTENIDO PRINCIPAL */}
-      <main className="min-w-0 flex-1 overflow-y-auto px-4 pb-20 pt-3 sm:px-6 lg:px-8 lg:pt-0 custom-scrollbar">
-        {/* BOTÓN MÓVIL */}
+<main className="min-w-0 flex-1 px-4 pb-20 pt-3 sm:px-6 lg:px-8 lg:pt-0">        {/* BOTÓN MÓVIL */}
         <div className="mb-4 lg:hidden">
           <button
             type="button"

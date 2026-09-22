@@ -313,6 +313,9 @@ export const AddressStep = ({
           data={
             effectiveFormData
           }
+          checkoutMode={
+           !editorMode
+          }
           onChange={
             handleFormChange
           }

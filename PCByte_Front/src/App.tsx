@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -65,6 +64,9 @@ import {
 const CART_KEY =
   "pcbyte_cart_v1";
 
+const CHECKOUT_RESUME_KEY =
+  "pcbyte_checkout_resume_v1";
+
 const CHECKOUT_SESSION_KEY =
   "pcbyte_checkout_session_v1";
 
@@ -82,6 +84,8 @@ function App() {
 
   const location =
     useLocation();
+
+    
 
   const {
     user,
@@ -154,43 +158,7 @@ function App() {
       "/admin/"
     );
 
-  useLayoutEffect(() => {
-    if (
-      location.pathname !==
-      "/productos"
-    ) {
-      return;
-    }
-
-    const resetScroll =
-      () => {
-        window.scrollTo(
-          0,
-          0
-        );
-
-        document.documentElement.scrollTop =
-          0;
-
-        document.body.scrollTop =
-          0;
-      };
-
-    resetScroll();
-
-    const animationFrame =
-      window.requestAnimationFrame(
-        resetScroll
-      );
-
-    return () => {
-      window.cancelAnimationFrame(
-        animationFrame
-      );
-    };
-  }, [
-    location.pathname,
-  ]);
+  
 
   useEffect(() => {
     setCurrentPage(1);
@@ -371,27 +339,34 @@ function App() {
     }, []);
 
   const handleCheckoutRedirection =
-    () => {
-      setIsCartOpen(false);
+  () => {
+    setIsCartOpen(false);
 
-      if (
-        isAuthenticated
-      ) {
-        navigate(
-          "/checkout"
-        );
+    const shouldResumeCheckout =
+      sessionStorage.getItem(
+        CHECKOUT_RESUME_KEY
+      ) === "true";
 
-        return;
-      }
-
+    if (
+      isAuthenticated ||
+      shouldResumeCheckout
+    ) {
       navigate(
-        "/checkout-selection"
+        "/checkout"
       );
-    };
+
+      return;
+    }
+
+    navigate(
+      "/checkout-selection"
+    );
+  };
 
   const handleLogout =
     () => {
       logout();
+      clearCart();
 
       sessionStorage.removeItem(
         CHECKOUT_SESSION_KEY
@@ -434,19 +409,29 @@ function App() {
       return products
         .filter(
           (product) => {
-            const matchesSearch =
-              product.name
-                .toLowerCase()
-                .includes(
-                  searchTerm
-                    .toLowerCase()
-                );
+           const categoryName =
+  product.category
+    ?.name ??
+  product.categoryName ??
+  "";
 
-            const categoryName =
-              product.category
-                ?.name ??
-              product.categoryName ??
-              "";
+const normalizedSearchTerm =
+  searchTerm
+    .trim()
+    .toLowerCase();
+
+const matchesSearch =
+  normalizedSearchTerm === "" ||
+  product.name
+    .toLowerCase()
+    .includes(
+      normalizedSearchTerm
+    ) ||
+  categoryName
+    .toLowerCase()
+    .includes(
+      normalizedSearchTerm
+    );
 
             const matchesCategory =
               filter ===
@@ -690,28 +675,14 @@ function App() {
       <div className="flex min-w-0 w-full flex-1">
         <Routes>
           <Route
-            path="/"
-            element={
-              <Home
-                setFilter={
-                  setFilter
-                }
-                processedProducts={
-                  processedProducts
-                }
-                onSelectProduct={(
-                  product
-                ) =>
-                  navigate(
-                    `/productos/${product.id}`
-                  )
-                }
-                onAddToCart={
-                  addToCart
-                }
-              />
-            }
-          />
+  path="/"
+  element={
+    <Navigate
+      to="/productos"
+      replace
+    />
+  }
+/>
 
           <Route
             path="/productos"
@@ -975,24 +946,27 @@ function App() {
 
           <div className="relative h-full w-full max-w-md animate-in slide-in-from-right duration-300">
             <Cart
-              cart={
-                cart
-              }
-              onClose={() =>
-                setIsCartOpen(
-                  false
-                )
-              }
-              onRemove={
-                removeItem
-              }
-              onUpdateQuantity={
-                updateQuantity
-              }
-              onCheckout={
-                handleCheckoutRedirection
-              }
-            />
+  cart={
+    cart
+  }
+  onClose={() =>
+    setIsCartOpen(
+      false
+    )
+  }
+  onRemove={
+    removeItem
+  }
+  onUpdateQuantity={
+    updateQuantity
+  }
+  onClear={
+    clearCart
+  }
+  onCheckout={
+    handleCheckoutRedirection
+  }
+/>
           </div>
         </div>
       )}

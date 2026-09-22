@@ -5,6 +5,7 @@ import {
 
 import {
   createUserAddress,
+  setDefaultUserAddress,
 } from "../../api/addressApi";
 
 import { useAuth } from "../../hooks/useAuth";
@@ -35,6 +36,11 @@ import type {
 
 interface AddressSelectorProps {
   data: CheckoutAddressData;
+  selectedAddressId: number | null;
+
+onSelectedAddressIdChange: (
+  addressId: number | null
+) => void;
 
   onChange: (
     event:
@@ -110,17 +116,22 @@ const parseApartment = (
 
 export default function AddressSelector({
   data,
+  selectedAddressId,
+  onSelectedAddressIdChange,
   onChange,
   onRegionChange,
   onComplementTypeChange,
   onBack,
   onContinue,
 }: AddressSelectorProps) {
+
   const {
     user,
     isAuthenticated,
   } = useAuth();
 
+
+  
   const {
   addresses,
   loading,
@@ -129,17 +140,17 @@ export default function AddressSelector({
 } = useAddresses(
   isAuthenticated
 );
+
+
+
+
+
   const [
     useNewAddress,
     setUseNewAddress,
   ] = useState(false);
 
-  const [
-    selectedAddressId,
-    setSelectedAddressId,
-  ] = useState<number | null>(
-    null
-  );
+  
 
   const [
     preferredAddressId,
@@ -147,6 +158,13 @@ export default function AddressSelector({
   ] = useState<number | null>(
     null
   );
+
+  const [
+  settingDefaultAddressId,
+  setSettingDefaultAddressId,
+] = useState<number | null>(
+  null
+);
 
   const [
     addressFormData,
@@ -175,55 +193,88 @@ export default function AddressSelector({
    * 3. La primera dirección disponible.
    */
   useEffect(() => {
-    if (addresses.length === 0) {
-      setSelectedAddressId(null);
-      return;
-    }
+  /*
+   * Mientras las direcciones todavía se están cargando,
+   * conservamos la selección restaurada desde CheckoutPage.
+   */
+  if (loading) {
+    return;
+  }
 
-    if (preferredAddressId !== null) {
-      const preferredAddressExists =
-        addresses.some(
-          (address) =>
-            address.id ===
-            preferredAddressId
-        );
+  /*
+   * Si realmente terminó la carga y el usuario
+   * no posee direcciones, limpiamos la selección.
+   */
+  if (addresses.length === 0) {
+    onSelectedAddressIdChange(
+      null
+    );
 
-      if (preferredAddressExists) {
-        setSelectedAddressId(
-          preferredAddressId
-        );
+    return;
+  }
 
-        setPreferredAddressId(null);
-        return;
-      }
-    }
-
-    const selectedStillExists =
+  /*
+   * Una dirección recién creada tiene prioridad.
+   */
+  if (preferredAddressId !== null) {
+    const preferredAddressExists =
       addresses.some(
         (address) =>
           address.id ===
-          selectedAddressId
+          preferredAddressId
       );
 
-    if (selectedStillExists) {
+    if (preferredAddressExists) {
+      onSelectedAddressIdChange(
+        preferredAddressId
+      );
+
+      setPreferredAddressId(
+        null
+      );
+
       return;
     }
+  }
 
-    const defaultAddress =
-      addresses.find(
-        (address) =>
-          address.defaultAddress
-      );
-
-    setSelectedAddressId(
-      defaultAddress?.id ??
-        addresses[0].id
+  /*
+   * Si CheckoutPage restauró una dirección
+   * y todavía existe, la conservamos.
+   */
+  const selectedStillExists =
+    addresses.some(
+      (address) =>
+        address.id ===
+        selectedAddressId
     );
-  }, [
-    addresses,
-    preferredAddressId,
-    selectedAddressId,
-  ]);
+
+  if (selectedStillExists) {
+    return;
+  }
+
+  /*
+   * Solo cuando no existe una selección válida
+   * utilizamos la predeterminada o la primera.
+   */
+  const defaultAddress =
+    addresses.find(
+      (address) =>
+        address.defaultAddress
+    );
+
+  onSelectedAddressIdChange(
+    defaultAddress?.id ??
+      addresses[0].id
+  );
+}, [
+  addresses,
+  loading,
+  preferredAddressId,
+  selectedAddressId,
+  onSelectedAddressIdChange,
+]);
+
+
 
   const emitAddressChange = (
     name: keyof CheckoutAddressData,
@@ -307,6 +358,48 @@ export default function AddressSelector({
 
       onContinue();
     };
+
+    const handleSetDefaultAddress =
+  async (
+    addressId: number
+  ) => {
+    if (
+      settingDefaultAddressId !==
+      null
+    ) {
+      return;
+    }
+
+    setSettingDefaultAddressId(
+      addressId
+    );
+
+    try {
+      await setDefaultUserAddress(
+        addressId
+      );
+
+      /*
+       * Actualizamos silenciosamente para no reemplazar
+       * la cuadrícula por el estado de carga.
+       *
+       * La dirección elegida para esta compra permanece
+       * independiente de la dirección predeterminada.
+       */
+      await reloadAddresses(
+        true
+      );
+    } catch (requestError) {
+      console.error(
+        "No fue posible establecer la dirección predeterminada:",
+        requestError
+      );
+    } finally {
+      setSettingDefaultAddressId(
+        null
+      );
+    }
+  };
 
   const handleOpenNewAddress = () => {
     setAddressFormData({
@@ -558,8 +651,8 @@ export default function AddressSelector({
         selectedAddressId
       }
       onSelectAddress={
-        setSelectedAddressId
-      }
+  onSelectedAddressIdChange
+}
       onUseNewAddress={
         handleOpenNewAddress
       }
@@ -567,6 +660,13 @@ export default function AddressSelector({
       onContinue={
         handleContinueWithSavedAddress
       }
+      settingDefaultAddressId={
+  settingDefaultAddressId
+}
+
+onSetDefaultAddress={
+  handleSetDefaultAddress
+}
     />
   );
 }

@@ -17,11 +17,10 @@ import {
   Package,
   Search,
   Settings,
-  ShieldCheck,
   ShoppingCart,
   UserRound,
   UserRoundPlus,
-  Wrench,
+
 } from "lucide-react";
 
 interface NavbarProps {
@@ -160,7 +159,7 @@ export default function Navbar({
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[#97cf00]/30 bg-[#08101d]/95 backdrop-blur-xl">
-      <div className="mx-auto flex min-h-[104px] items-center justify-between gap-5 px-6">
+      <div className="mx-auto flex min-h-[104px] items-center justify-between gap-5 pl-3 pr-6">
         {/* LOGO */}
 
         <button
@@ -170,15 +169,15 @@ export default function Navbar({
           aria-label="Ir al inicio"
         >
           <img
-            src={logo}
-            alt="PCByte"
-            className="h-24 w-auto"
-          />
+  src={logo}
+  alt="PCByte"
+  className="h-[100px] w-auto object-contain"
+/>
         </button>
 
         {/* MENÚ PRINCIPAL */}
 
-        <div className="hidden items-center gap-8 xl:flex">
+        <div className="hidden -ml-8 items-center gap-8 xl:flex">
           <button
             type="button"
             onClick={onGoHome}
@@ -193,13 +192,7 @@ export default function Navbar({
             Productos
           </span>
 
-          <button
-            type="button"
-            className="flex items-center gap-2 text-sm font-bold text-slate-300 transition hover:text-[#97cf00]"
-          >
-            <Wrench size={17} />
-            Servicio Técnico
-          </button>
+          
         </div>
 
         {/* BUSCADOR */}
@@ -220,8 +213,7 @@ export default function Navbar({
                 )
               }
               placeholder="Buscar productos..."
-              className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#97cf00]"
-            />
+className="h-11 w-full rounded-full border-2 border-white bg-white/5 pl-11 pr-4 text-sm text-white outline-none transition-all duration-200 placeholder:text-slate-500 hover:border-[#97cf00] focus:border-[#97cf00] focus:ring-2 focus:ring-[#97cf00]/15"            />
           </div>
         </div>
 
@@ -400,7 +392,7 @@ export default function Navbar({
 
               <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
                 <span>
-                  ¿Primera vez?
+                  ¿No tienes cuenta?
                 </span>
 
                 <button
@@ -413,7 +405,7 @@ export default function Navbar({
                     size={12}
                   />
 
-                  Regístrate gratis
+                  Regístrate
                 </button>
               </div>
             </div>
@@ -452,21 +444,8 @@ export default function Navbar({
 
           <button
             type="button"
-            onClick={onOpenAdmin}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-slate-400 transition hover:bg-[#97cf00] hover:text-black"
-            aria-label="Abrir administración"
-            title="Administración"
-          >
-            <ShieldCheck
-              size={18}
-            />
-          </button>
-
-          <button
-            type="button"
             onClick={onOpenCart}
-            className="relative flex h-12 w-12 items-center justify-center rounded-full bg-[#0066FF] text-white transition hover:bg-[#97cf00] hover:text-black"
-            aria-label="Abrir carrito"
+className="relative ml-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#0066FF] text-white transition hover:bg-[#97cf00] hover:text-black"            aria-label="Abrir carrito"
           >
             <ShoppingCart
               size={21}

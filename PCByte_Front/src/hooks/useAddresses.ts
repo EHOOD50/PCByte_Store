@@ -21,9 +21,11 @@ export function useAddresses(
   ] = useState<Address[]>([]);
 
   const [
-    loading,
-    setLoading,
-  ] = useState(false);
+  loading,
+  setLoading,
+] = useState(
+  enabled
+);
 
   const [
     error,

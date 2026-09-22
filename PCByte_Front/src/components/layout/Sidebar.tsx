@@ -3,8 +3,7 @@ import { useMenu } from "../../hooks/useMenu";
 import {
   ChevronRight,
   LayoutGrid,
-  ShieldCheck,
-} from "lucide-react";
+  } from "lucide-react";
 
 interface SidebarProps {
   activeCategory: string;
@@ -148,18 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </nav>
 
-        <div className="mt-auto shrink-0 pt-10">
-          <div className="flex flex-col items-center rounded-[2rem] border border-white/5 bg-white/5 p-4">
-            <ShieldCheck
-              size={20}
-              className="mb-2 text-[#97cf00] opacity-50"
-            />
-
-            <p className="text-center text-[8px] font-black uppercase tracking-tighter text-slate-500">
-              Core_Engine_v1.0
-            </p>
-          </div>
-        </div>
+        
       </div>
     </aside>
   );
